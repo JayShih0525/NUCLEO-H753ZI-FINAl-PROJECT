@@ -4155,19 +4155,312 @@ Discarded input sections
  .debug_macro   0x00000000      0x693 ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart_ex.o
  .debug_macro   0x00000000       0xa6 ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart_ex.o
  .debug_macro   0x00000000      0x5ac ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart_ex.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_keypad.o
+ .text          0x00000000        0x0 ./src/my_keypad.o
+ .data          0x00000000        0x0 ./src/my_keypad.o
+ .bss           0x00000000        0x0 ./src/my_keypad.o
+ .data.ROW_PORT
+                0x00000000       0x10 ./src/my_keypad.o
+ .data.ROW_PIN  0x00000000        0x8 ./src/my_keypad.o
+ .data.COL_PORT
+                0x00000000       0x10 ./src/my_keypad.o
+ .data.COL_PIN  0x00000000        0x8 ./src/my_keypad.o
+ .text.KEYPAD_GPIO_Init
+                0x00000000      0x124 ./src/my_keypad.o
+ .text.KEYPAD_Init
+                0x00000000        0xc ./src/my_keypad.o
+ .text.read_keypad
+                0x00000000       0xb8 ./src/my_keypad.o
+ .debug_info    0x00000000      0x740 ./src/my_keypad.o
+ .debug_abbrev  0x00000000      0x1fd ./src/my_keypad.o
+ .debug_aranges
+                0x00000000       0x30 ./src/my_keypad.o
+ .debug_rnglists
+                0x00000000       0x21 ./src/my_keypad.o
+ .debug_macro   0x00000000      0x29e ./src/my_keypad.o
+ .debug_macro   0x00000000      0xaf6 ./src/my_keypad.o
+ .debug_macro   0x00000000      0x232 ./src/my_keypad.o
+ .debug_macro   0x00000000       0x2e ./src/my_keypad.o
+ .debug_macro   0x00000000       0x3b ./src/my_keypad.o
+ .debug_macro   0x00000000       0x22 ./src/my_keypad.o
+ .debug_macro   0x00000000       0x8e ./src/my_keypad.o
+ .debug_macro   0x00000000       0x51 ./src/my_keypad.o
+ .debug_macro   0x00000000      0x103 ./src/my_keypad.o
+ .debug_macro   0x00000000       0x6a ./src/my_keypad.o
+ .debug_macro   0x00000000      0x1df ./src/my_keypad.o
+ .debug_macro   0x00000000       0x1c ./src/my_keypad.o
+ .debug_macro   0x00000000       0x22 ./src/my_keypad.o
+ .debug_macro   0x00000000       0xfb ./src/my_keypad.o
+ .debug_macro   0x00000000     0x1305 ./src/my_keypad.o
+ .debug_macro   0x00000000      0x11f ./src/my_keypad.o
+ .debug_macro   0x00000000       0x27 ./src/my_keypad.o
+ .debug_macro   0x00000000    0x261cc ./src/my_keypad.o
+ .debug_macro   0x00000000       0x6d ./src/my_keypad.o
+ .debug_macro   0x00000000     0x3d79 ./src/my_keypad.o
+ .debug_macro   0x00000000      0x190 ./src/my_keypad.o
+ .debug_macro   0x00000000       0x61 ./src/my_keypad.o
+ .debug_macro   0x00000000       0x29 ./src/my_keypad.o
+ .debug_macro   0x00000000       0x43 ./src/my_keypad.o
+ .debug_macro   0x00000000       0x34 ./src/my_keypad.o
+ .debug_macro   0x00000000      0x364 ./src/my_keypad.o
+ .debug_macro   0x00000000       0x16 ./src/my_keypad.o
+ .debug_macro   0x00000000       0x4a ./src/my_keypad.o
+ .debug_macro   0x00000000       0x34 ./src/my_keypad.o
+ .debug_macro   0x00000000       0x10 ./src/my_keypad.o
+ .debug_macro   0x00000000       0x58 ./src/my_keypad.o
+ .debug_macro   0x00000000       0x8e ./src/my_keypad.o
+ .debug_macro   0x00000000       0x1c ./src/my_keypad.o
+ .debug_macro   0x00000000      0x17e ./src/my_keypad.o
+ .debug_macro   0x00000000      0x19b ./src/my_keypad.o
+ .debug_macro   0x00000000       0x5d ./src/my_keypad.o
+ .debug_macro   0x00000000     0x240e ./src/my_keypad.o
+ .debug_macro   0x00000000     0x102c ./src/my_keypad.o
+ .debug_macro   0x00000000      0x154 ./src/my_keypad.o
+ .debug_macro   0x00000000      0x114 ./src/my_keypad.o
+ .debug_macro   0x00000000      0x3b6 ./src/my_keypad.o
+ .debug_macro   0x00000000       0xac ./src/my_keypad.o
+ .debug_macro   0x00000000      0x72d ./src/my_keypad.o
+ .debug_macro   0x00000000      0x228 ./src/my_keypad.o
+ .debug_macro   0x00000000       0x66 ./src/my_keypad.o
+ .debug_macro   0x00000000      0x3bb ./src/my_keypad.o
+ .debug_macro   0x00000000      0x3e4 ./src/my_keypad.o
+ .debug_macro   0x00000000      0x275 ./src/my_keypad.o
+ .debug_macro   0x00000000      0x3ca ./src/my_keypad.o
+ .debug_macro   0x00000000      0x408 ./src/my_keypad.o
+ .debug_macro   0x00000000       0x51 ./src/my_keypad.o
+ .debug_macro   0x00000000       0x4a ./src/my_keypad.o
+ .debug_macro   0x00000000      0x22c ./src/my_keypad.o
+ .debug_macro   0x00000000       0x67 ./src/my_keypad.o
+ .debug_macro   0x00000000       0xa5 ./src/my_keypad.o
+ .debug_macro   0x00000000      0x1c4 ./src/my_keypad.o
+ .debug_macro   0x00000000      0x25e ./src/my_keypad.o
+ .debug_macro   0x00000000       0x35 ./src/my_keypad.o
+ .debug_macro   0x00000000      0x693 ./src/my_keypad.o
+ .debug_macro   0x00000000       0xa6 ./src/my_keypad.o
+ .debug_macro   0x00000000      0x5ac ./src/my_keypad.o
+ .debug_line    0x00000000      0x979 ./src/my_keypad.o
+ .debug_str     0x00000000   0x154d81 ./src/my_keypad.o
+ .comment       0x00000000       0x44 ./src/my_keypad.o
+ .debug_frame   0x00000000       0x74 ./src/my_keypad.o
+ .ARM.attributes
+                0x00000000       0x32 ./src/my_keypad.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
+ .group         0x00000000        0xc ./src/my_led.o
  .group         0x00000000        0xc ./src/my_led.o
  .text          0x00000000        0x0 ./src/my_led.o
  .data          0x00000000        0x0 ./src/my_led.o
  .bss           0x00000000        0x0 ./src/my_led.o
- .debug_info    0x00000000       0x22 ./src/my_led.o
- .debug_abbrev  0x00000000       0x12 ./src/my_led.o
+ .data.LED_PORT_ARRAY
+                0x00000000        0xc ./src/my_led.o
+ .data.LED_PIN_ARRAY
+                0x00000000        0x6 ./src/my_led.o
+ .text.LED_GPIO_Init
+                0x00000000       0xc0 ./src/my_led.o
+ .text.LED_Init
+                0x00000000        0xc ./src/my_led.o
+ .text.open_all_led
+                0x00000000       0x44 ./src/my_led.o
+ .text.close_all_led
+                0x00000000       0x44 ./src/my_led.o
+ .text.toggle_all_led
+                0x00000000       0x44 ./src/my_led.o
+ .text.open_single_led
+                0x00000000       0x44 ./src/my_led.o
+ .text.close_single_led
+                0x00000000       0x44 ./src/my_led.o
+ .text.toggle_single_led
+                0x00000000       0x44 ./src/my_led.o
+ .text.read_led_state
+                0x00000000       0x48 ./src/my_led.o
+ .debug_info    0x00000000      0x7b2 ./src/my_led.o
+ .debug_abbrev  0x00000000      0x22e ./src/my_led.o
  .debug_aranges
-                0x00000000       0x18 ./src/my_led.o
- .debug_macro   0x00000000       0x11 ./src/my_led.o
+                0x00000000       0x60 ./src/my_led.o
+ .debug_rnglists
+                0x00000000       0x44 ./src/my_led.o
+ .debug_macro   0x00000000      0x2a3 ./src/my_led.o
  .debug_macro   0x00000000      0xaf6 ./src/my_led.o
- .debug_line    0x00000000       0x6b ./src/my_led.o
- .debug_str     0x00000000     0x2f11 ./src/my_led.o
+ .debug_macro   0x00000000      0x232 ./src/my_led.o
+ .debug_macro   0x00000000       0x2e ./src/my_led.o
+ .debug_macro   0x00000000       0x3b ./src/my_led.o
+ .debug_macro   0x00000000       0x22 ./src/my_led.o
+ .debug_macro   0x00000000       0x8e ./src/my_led.o
+ .debug_macro   0x00000000       0x51 ./src/my_led.o
+ .debug_macro   0x00000000      0x103 ./src/my_led.o
+ .debug_macro   0x00000000       0x6a ./src/my_led.o
+ .debug_macro   0x00000000      0x1df ./src/my_led.o
+ .debug_macro   0x00000000       0x1c ./src/my_led.o
+ .debug_macro   0x00000000       0x22 ./src/my_led.o
+ .debug_macro   0x00000000       0xfb ./src/my_led.o
+ .debug_macro   0x00000000     0x1305 ./src/my_led.o
+ .debug_macro   0x00000000      0x11f ./src/my_led.o
+ .debug_macro   0x00000000       0x27 ./src/my_led.o
+ .debug_macro   0x00000000    0x261cc ./src/my_led.o
+ .debug_macro   0x00000000       0x6d ./src/my_led.o
+ .debug_macro   0x00000000     0x3d79 ./src/my_led.o
+ .debug_macro   0x00000000      0x190 ./src/my_led.o
+ .debug_macro   0x00000000       0x61 ./src/my_led.o
+ .debug_macro   0x00000000       0x29 ./src/my_led.o
+ .debug_macro   0x00000000       0x43 ./src/my_led.o
+ .debug_macro   0x00000000       0x34 ./src/my_led.o
+ .debug_macro   0x00000000      0x364 ./src/my_led.o
+ .debug_macro   0x00000000       0x16 ./src/my_led.o
+ .debug_macro   0x00000000       0x4a ./src/my_led.o
+ .debug_macro   0x00000000       0x34 ./src/my_led.o
+ .debug_macro   0x00000000       0x10 ./src/my_led.o
+ .debug_macro   0x00000000       0x58 ./src/my_led.o
+ .debug_macro   0x00000000       0x8e ./src/my_led.o
+ .debug_macro   0x00000000       0x1c ./src/my_led.o
+ .debug_macro   0x00000000      0x17e ./src/my_led.o
+ .debug_macro   0x00000000      0x19b ./src/my_led.o
+ .debug_macro   0x00000000       0x5d ./src/my_led.o
+ .debug_macro   0x00000000     0x240e ./src/my_led.o
+ .debug_macro   0x00000000     0x102c ./src/my_led.o
+ .debug_macro   0x00000000      0x154 ./src/my_led.o
+ .debug_macro   0x00000000      0x114 ./src/my_led.o
+ .debug_macro   0x00000000      0x3b6 ./src/my_led.o
+ .debug_macro   0x00000000       0xac ./src/my_led.o
+ .debug_macro   0x00000000      0x72d ./src/my_led.o
+ .debug_macro   0x00000000      0x228 ./src/my_led.o
+ .debug_macro   0x00000000       0x66 ./src/my_led.o
+ .debug_macro   0x00000000      0x3bb ./src/my_led.o
+ .debug_macro   0x00000000      0x3e4 ./src/my_led.o
+ .debug_macro   0x00000000      0x275 ./src/my_led.o
+ .debug_macro   0x00000000      0x3ca ./src/my_led.o
+ .debug_macro   0x00000000      0x408 ./src/my_led.o
+ .debug_macro   0x00000000       0x51 ./src/my_led.o
+ .debug_macro   0x00000000       0x4a ./src/my_led.o
+ .debug_macro   0x00000000      0x22c ./src/my_led.o
+ .debug_macro   0x00000000       0x67 ./src/my_led.o
+ .debug_macro   0x00000000       0xa5 ./src/my_led.o
+ .debug_macro   0x00000000      0x1c4 ./src/my_led.o
+ .debug_macro   0x00000000      0x25e ./src/my_led.o
+ .debug_macro   0x00000000       0x35 ./src/my_led.o
+ .debug_macro   0x00000000      0x693 ./src/my_led.o
+ .debug_macro   0x00000000       0xa6 ./src/my_led.o
+ .debug_macro   0x00000000      0x5ac ./src/my_led.o
+ .debug_macro   0x00000000       0x28 ./src/my_led.o
+ .debug_line    0x00000000      0xa37 ./src/my_led.o
+ .debug_str     0x00000000   0x154e50 ./src/my_led.o
  .comment       0x00000000       0x44 ./src/my_led.o
+ .debug_frame   0x00000000      0x14c ./src/my_led.o
  .ARM.attributes
                 0x00000000       0x32 ./src/my_led.o
  .group         0x00000000        0xc ./src/my_uart3.o
@@ -4554,6 +4847,7 @@ LOAD ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_tim.o
 LOAD ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_tim_ex.o
 LOAD ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart.o
 LOAD ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart_ex.o
+LOAD ./src/my_keypad.o
 LOAD ./src/my_led.o
 LOAD ./src/my_uart3.o
 START GROUP
