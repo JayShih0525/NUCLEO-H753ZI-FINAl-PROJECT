@@ -5,7 +5,7 @@ Archive member included to satisfy reference by file (symbol)
 /Applications/STM32CubeIDE.app/Contents/Eclipse/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.macos64_1.0.100.202602081740/tools/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/lib/thumb/v7e-m+dp/hard/libc_nano.a(libc_a-findfp.o)
                               /Applications/STM32CubeIDE.app/Contents/Eclipse/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.macos64_1.0.100.202602081740/tools/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/lib/thumb/v7e-m+dp/hard/libc_nano.a(libc_a-exit.o) (__stdio_exit_handler)
 /Applications/STM32CubeIDE.app/Contents/Eclipse/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.macos64_1.0.100.202602081740/tools/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/lib/thumb/v7e-m+dp/hard/libc_nano.a(libc_a-vsnprintf.o)
-                              ./src/my_uart3.o (vsnprintf)
+                              ./Library/src/my_uart3.o (vsnprintf)
 /Applications/STM32CubeIDE.app/Contents/Eclipse/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.macos64_1.0.100.202602081740/tools/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/lib/thumb/v7e-m+dp/hard/libc_nano.a(libc_a-fwalk.o)
                               /Applications/STM32CubeIDE.app/Contents/Eclipse/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.macos64_1.0.100.202602081740/tools/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/lib/thumb/v7e-m+dp/hard/libc_nano.a(libc_a-findfp.o) (_fwalk_sglue)
 /Applications/STM32CubeIDE.app/Contents/Eclipse/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.macos64_1.0.100.202602081740/tools/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/lib/thumb/v7e-m+dp/hard/libc_nano.a(libc_a-memset.o)
@@ -4147,272 +4147,420 @@ Discarded input sections
  .debug_macro   0x00000000      0x693 ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart_ex.o
  .debug_macro   0x00000000       0xa6 ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart_ex.o
  .debug_macro   0x00000000      0x5ac ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart_ex.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .group         0x00000000        0xc ./src/my_led.o
- .text          0x00000000        0x0 ./src/my_led.o
- .data          0x00000000        0x0 ./src/my_led.o
- .bss           0x00000000        0x0 ./src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_keypad.o
+ .text          0x00000000        0x0 ./Library/src/my_keypad.o
+ .data          0x00000000        0x0 ./Library/src/my_keypad.o
+ .bss           0x00000000        0x0 ./Library/src/my_keypad.o
+ .data.ROW_PORT
+                0x00000000       0x10 ./Library/src/my_keypad.o
+ .data.ROW_PIN  0x00000000        0x8 ./Library/src/my_keypad.o
+ .data.COL_PORT
+                0x00000000       0x10 ./Library/src/my_keypad.o
+ .data.COL_PIN  0x00000000        0x8 ./Library/src/my_keypad.o
+ .text.KEYPAD_GPIO_Init
+                0x00000000      0x124 ./Library/src/my_keypad.o
+ .text.KEYPAD_Init
+                0x00000000        0xc ./Library/src/my_keypad.o
+ .text.read_keypad
+                0x00000000       0xb8 ./Library/src/my_keypad.o
+ .debug_info    0x00000000      0x740 ./Library/src/my_keypad.o
+ .debug_abbrev  0x00000000      0x1fd ./Library/src/my_keypad.o
+ .debug_aranges
+                0x00000000       0x30 ./Library/src/my_keypad.o
+ .debug_rnglists
+                0x00000000       0x21 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000      0x29e ./Library/src/my_keypad.o
+ .debug_macro   0x00000000      0xaf6 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000      0x232 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000       0x2e ./Library/src/my_keypad.o
+ .debug_macro   0x00000000       0x3b ./Library/src/my_keypad.o
+ .debug_macro   0x00000000       0x22 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000       0x8e ./Library/src/my_keypad.o
+ .debug_macro   0x00000000       0x51 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000      0x103 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000       0x6a ./Library/src/my_keypad.o
+ .debug_macro   0x00000000      0x1df ./Library/src/my_keypad.o
+ .debug_macro   0x00000000       0x1c ./Library/src/my_keypad.o
+ .debug_macro   0x00000000       0x22 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000       0xfb ./Library/src/my_keypad.o
+ .debug_macro   0x00000000     0x1305 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000      0x11f ./Library/src/my_keypad.o
+ .debug_macro   0x00000000       0x27 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000    0x261cc ./Library/src/my_keypad.o
+ .debug_macro   0x00000000       0x6d ./Library/src/my_keypad.o
+ .debug_macro   0x00000000     0x3d79 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000      0x190 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000       0x61 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000       0x29 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000       0x43 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000       0x34 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000      0x364 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000       0x16 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000       0x4a ./Library/src/my_keypad.o
+ .debug_macro   0x00000000       0x34 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000       0x10 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000       0x58 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000       0x8e ./Library/src/my_keypad.o
+ .debug_macro   0x00000000       0x1c ./Library/src/my_keypad.o
+ .debug_macro   0x00000000      0x17e ./Library/src/my_keypad.o
+ .debug_macro   0x00000000      0x19b ./Library/src/my_keypad.o
+ .debug_macro   0x00000000       0x5d ./Library/src/my_keypad.o
+ .debug_macro   0x00000000     0x240e ./Library/src/my_keypad.o
+ .debug_macro   0x00000000     0x102c ./Library/src/my_keypad.o
+ .debug_macro   0x00000000      0x154 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000      0x114 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000      0x3b6 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000       0xac ./Library/src/my_keypad.o
+ .debug_macro   0x00000000      0x72d ./Library/src/my_keypad.o
+ .debug_macro   0x00000000      0x228 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000       0x66 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000      0x3bb ./Library/src/my_keypad.o
+ .debug_macro   0x00000000      0x3e4 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000      0x275 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000      0x3ca ./Library/src/my_keypad.o
+ .debug_macro   0x00000000      0x408 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000       0x51 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000       0x4a ./Library/src/my_keypad.o
+ .debug_macro   0x00000000      0x22c ./Library/src/my_keypad.o
+ .debug_macro   0x00000000       0x67 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000       0xa5 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000      0x1c4 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000      0x25e ./Library/src/my_keypad.o
+ .debug_macro   0x00000000       0x35 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000      0x693 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000       0xa6 ./Library/src/my_keypad.o
+ .debug_macro   0x00000000      0x5ac ./Library/src/my_keypad.o
+ .debug_line    0x00000000      0x980 ./Library/src/my_keypad.o
+ .debug_str     0x00000000   0x154d88 ./Library/src/my_keypad.o
+ .comment       0x00000000       0x44 ./Library/src/my_keypad.o
+ .debug_frame   0x00000000       0x74 ./Library/src/my_keypad.o
+ .ARM.attributes
+                0x00000000       0x32 ./Library/src/my_keypad.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_led.o
+ .text          0x00000000        0x0 ./Library/src/my_led.o
+ .data          0x00000000        0x0 ./Library/src/my_led.o
+ .bss           0x00000000        0x0 ./Library/src/my_led.o
  .text.open_single_led
-                0x00000000       0x44 ./src/my_led.o
+                0x00000000       0x44 ./Library/src/my_led.o
  .text.close_single_led
-                0x00000000       0x44 ./src/my_led.o
- .debug_macro   0x00000000      0xaf6 ./src/my_led.o
- .debug_macro   0x00000000      0x232 ./src/my_led.o
- .debug_macro   0x00000000       0x2e ./src/my_led.o
- .debug_macro   0x00000000       0x3b ./src/my_led.o
- .debug_macro   0x00000000       0x22 ./src/my_led.o
- .debug_macro   0x00000000       0x8e ./src/my_led.o
- .debug_macro   0x00000000       0x51 ./src/my_led.o
- .debug_macro   0x00000000      0x103 ./src/my_led.o
- .debug_macro   0x00000000       0x6a ./src/my_led.o
- .debug_macro   0x00000000      0x1df ./src/my_led.o
- .debug_macro   0x00000000       0x1c ./src/my_led.o
- .debug_macro   0x00000000       0x22 ./src/my_led.o
- .debug_macro   0x00000000       0xfb ./src/my_led.o
- .debug_macro   0x00000000     0x1305 ./src/my_led.o
- .debug_macro   0x00000000      0x11f ./src/my_led.o
- .debug_macro   0x00000000       0x27 ./src/my_led.o
- .debug_macro   0x00000000    0x261cc ./src/my_led.o
- .debug_macro   0x00000000       0x6d ./src/my_led.o
- .debug_macro   0x00000000     0x3d79 ./src/my_led.o
- .debug_macro   0x00000000      0x190 ./src/my_led.o
- .debug_macro   0x00000000       0x61 ./src/my_led.o
- .debug_macro   0x00000000       0x29 ./src/my_led.o
- .debug_macro   0x00000000       0x43 ./src/my_led.o
- .debug_macro   0x00000000       0x34 ./src/my_led.o
- .debug_macro   0x00000000      0x364 ./src/my_led.o
- .debug_macro   0x00000000       0x16 ./src/my_led.o
- .debug_macro   0x00000000       0x4a ./src/my_led.o
- .debug_macro   0x00000000       0x34 ./src/my_led.o
- .debug_macro   0x00000000       0x10 ./src/my_led.o
- .debug_macro   0x00000000       0x58 ./src/my_led.o
- .debug_macro   0x00000000       0x8e ./src/my_led.o
- .debug_macro   0x00000000       0x1c ./src/my_led.o
- .debug_macro   0x00000000      0x17e ./src/my_led.o
- .debug_macro   0x00000000      0x19b ./src/my_led.o
- .debug_macro   0x00000000       0x5d ./src/my_led.o
- .debug_macro   0x00000000     0x240e ./src/my_led.o
- .debug_macro   0x00000000     0x102c ./src/my_led.o
- .debug_macro   0x00000000      0x154 ./src/my_led.o
- .debug_macro   0x00000000      0x114 ./src/my_led.o
- .debug_macro   0x00000000      0x3b6 ./src/my_led.o
- .debug_macro   0x00000000       0xac ./src/my_led.o
- .debug_macro   0x00000000      0x72d ./src/my_led.o
- .debug_macro   0x00000000      0x228 ./src/my_led.o
- .debug_macro   0x00000000       0x66 ./src/my_led.o
- .debug_macro   0x00000000      0x3bb ./src/my_led.o
- .debug_macro   0x00000000      0x3e4 ./src/my_led.o
- .debug_macro   0x00000000      0x275 ./src/my_led.o
- .debug_macro   0x00000000      0x3ca ./src/my_led.o
- .debug_macro   0x00000000      0x408 ./src/my_led.o
- .debug_macro   0x00000000       0x51 ./src/my_led.o
- .debug_macro   0x00000000       0x4a ./src/my_led.o
- .debug_macro   0x00000000      0x22c ./src/my_led.o
- .debug_macro   0x00000000       0x67 ./src/my_led.o
- .debug_macro   0x00000000       0xa5 ./src/my_led.o
- .debug_macro   0x00000000      0x1c4 ./src/my_led.o
- .debug_macro   0x00000000      0x25e ./src/my_led.o
- .debug_macro   0x00000000       0x35 ./src/my_led.o
- .debug_macro   0x00000000      0x693 ./src/my_led.o
- .debug_macro   0x00000000       0xa6 ./src/my_led.o
- .debug_macro   0x00000000      0x5ac ./src/my_led.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .group         0x00000000        0xc ./src/my_uart3.o
- .text          0x00000000        0x0 ./src/my_uart3.o
- .data          0x00000000        0x0 ./src/my_uart3.o
- .bss           0x00000000        0x0 ./src/my_uart3.o
- .debug_macro   0x00000000      0xaf6 ./src/my_uart3.o
- .debug_macro   0x00000000      0x232 ./src/my_uart3.o
- .debug_macro   0x00000000       0x2e ./src/my_uart3.o
- .debug_macro   0x00000000       0x3b ./src/my_uart3.o
- .debug_macro   0x00000000       0x22 ./src/my_uart3.o
- .debug_macro   0x00000000       0x8e ./src/my_uart3.o
- .debug_macro   0x00000000       0x51 ./src/my_uart3.o
- .debug_macro   0x00000000      0x103 ./src/my_uart3.o
- .debug_macro   0x00000000       0x6a ./src/my_uart3.o
- .debug_macro   0x00000000      0x1df ./src/my_uart3.o
- .debug_macro   0x00000000       0x1c ./src/my_uart3.o
- .debug_macro   0x00000000       0x22 ./src/my_uart3.o
- .debug_macro   0x00000000       0xfb ./src/my_uart3.o
- .debug_macro   0x00000000     0x1305 ./src/my_uart3.o
- .debug_macro   0x00000000      0x11f ./src/my_uart3.o
- .debug_macro   0x00000000       0x27 ./src/my_uart3.o
- .debug_macro   0x00000000    0x261cc ./src/my_uart3.o
- .debug_macro   0x00000000       0x6d ./src/my_uart3.o
- .debug_macro   0x00000000     0x3d79 ./src/my_uart3.o
- .debug_macro   0x00000000      0x190 ./src/my_uart3.o
- .debug_macro   0x00000000       0x61 ./src/my_uart3.o
- .debug_macro   0x00000000       0x29 ./src/my_uart3.o
- .debug_macro   0x00000000       0x43 ./src/my_uart3.o
- .debug_macro   0x00000000       0x34 ./src/my_uart3.o
- .debug_macro   0x00000000      0x364 ./src/my_uart3.o
- .debug_macro   0x00000000       0x16 ./src/my_uart3.o
- .debug_macro   0x00000000       0x4a ./src/my_uart3.o
- .debug_macro   0x00000000       0x34 ./src/my_uart3.o
- .debug_macro   0x00000000       0x10 ./src/my_uart3.o
- .debug_macro   0x00000000       0x58 ./src/my_uart3.o
- .debug_macro   0x00000000       0x8e ./src/my_uart3.o
- .debug_macro   0x00000000       0x1c ./src/my_uart3.o
- .debug_macro   0x00000000      0x17e ./src/my_uart3.o
- .debug_macro   0x00000000      0x19b ./src/my_uart3.o
- .debug_macro   0x00000000       0x5d ./src/my_uart3.o
- .debug_macro   0x00000000     0x240e ./src/my_uart3.o
- .debug_macro   0x00000000     0x102c ./src/my_uart3.o
- .debug_macro   0x00000000      0x154 ./src/my_uart3.o
- .debug_macro   0x00000000      0x114 ./src/my_uart3.o
- .debug_macro   0x00000000      0x3b6 ./src/my_uart3.o
- .debug_macro   0x00000000       0xac ./src/my_uart3.o
- .debug_macro   0x00000000      0x72d ./src/my_uart3.o
- .debug_macro   0x00000000      0x228 ./src/my_uart3.o
- .debug_macro   0x00000000       0x66 ./src/my_uart3.o
- .debug_macro   0x00000000      0x3bb ./src/my_uart3.o
- .debug_macro   0x00000000      0x3e4 ./src/my_uart3.o
- .debug_macro   0x00000000      0x275 ./src/my_uart3.o
- .debug_macro   0x00000000      0x3ca ./src/my_uart3.o
- .debug_macro   0x00000000      0x408 ./src/my_uart3.o
- .debug_macro   0x00000000       0x51 ./src/my_uart3.o
- .debug_macro   0x00000000       0x4a ./src/my_uart3.o
- .debug_macro   0x00000000      0x22c ./src/my_uart3.o
- .debug_macro   0x00000000       0x67 ./src/my_uart3.o
- .debug_macro   0x00000000       0xa5 ./src/my_uart3.o
- .debug_macro   0x00000000      0x1c4 ./src/my_uart3.o
- .debug_macro   0x00000000      0x25e ./src/my_uart3.o
- .debug_macro   0x00000000       0x35 ./src/my_uart3.o
- .debug_macro   0x00000000      0x693 ./src/my_uart3.o
- .debug_macro   0x00000000       0xa6 ./src/my_uart3.o
- .debug_macro   0x00000000      0x5ac ./src/my_uart3.o
- .debug_macro   0x00000000       0x58 ./src/my_uart3.o
- .debug_macro   0x00000000       0x1c ./src/my_uart3.o
- .debug_macro   0x00000000       0x3c ./src/my_uart3.o
- .debug_macro   0x00000000       0x16 ./src/my_uart3.o
- .debug_macro   0x00000000      0x146 ./src/my_uart3.o
- .debug_macro   0x00000000       0x16 ./src/my_uart3.o
- .debug_macro   0x00000000       0x20 ./src/my_uart3.o
+                0x00000000       0x44 ./Library/src/my_led.o
+ .debug_macro   0x00000000      0xaf6 ./Library/src/my_led.o
+ .debug_macro   0x00000000      0x232 ./Library/src/my_led.o
+ .debug_macro   0x00000000       0x2e ./Library/src/my_led.o
+ .debug_macro   0x00000000       0x3b ./Library/src/my_led.o
+ .debug_macro   0x00000000       0x22 ./Library/src/my_led.o
+ .debug_macro   0x00000000       0x8e ./Library/src/my_led.o
+ .debug_macro   0x00000000       0x51 ./Library/src/my_led.o
+ .debug_macro   0x00000000      0x103 ./Library/src/my_led.o
+ .debug_macro   0x00000000       0x6a ./Library/src/my_led.o
+ .debug_macro   0x00000000      0x1df ./Library/src/my_led.o
+ .debug_macro   0x00000000       0x1c ./Library/src/my_led.o
+ .debug_macro   0x00000000       0x22 ./Library/src/my_led.o
+ .debug_macro   0x00000000       0xfb ./Library/src/my_led.o
+ .debug_macro   0x00000000     0x1305 ./Library/src/my_led.o
+ .debug_macro   0x00000000      0x11f ./Library/src/my_led.o
+ .debug_macro   0x00000000       0x27 ./Library/src/my_led.o
+ .debug_macro   0x00000000    0x261cc ./Library/src/my_led.o
+ .debug_macro   0x00000000       0x6d ./Library/src/my_led.o
+ .debug_macro   0x00000000     0x3d79 ./Library/src/my_led.o
+ .debug_macro   0x00000000      0x190 ./Library/src/my_led.o
+ .debug_macro   0x00000000       0x61 ./Library/src/my_led.o
+ .debug_macro   0x00000000       0x29 ./Library/src/my_led.o
+ .debug_macro   0x00000000       0x43 ./Library/src/my_led.o
+ .debug_macro   0x00000000       0x34 ./Library/src/my_led.o
+ .debug_macro   0x00000000      0x364 ./Library/src/my_led.o
+ .debug_macro   0x00000000       0x16 ./Library/src/my_led.o
+ .debug_macro   0x00000000       0x4a ./Library/src/my_led.o
+ .debug_macro   0x00000000       0x34 ./Library/src/my_led.o
+ .debug_macro   0x00000000       0x10 ./Library/src/my_led.o
+ .debug_macro   0x00000000       0x58 ./Library/src/my_led.o
+ .debug_macro   0x00000000       0x8e ./Library/src/my_led.o
+ .debug_macro   0x00000000       0x1c ./Library/src/my_led.o
+ .debug_macro   0x00000000      0x17e ./Library/src/my_led.o
+ .debug_macro   0x00000000      0x19b ./Library/src/my_led.o
+ .debug_macro   0x00000000       0x5d ./Library/src/my_led.o
+ .debug_macro   0x00000000     0x240e ./Library/src/my_led.o
+ .debug_macro   0x00000000     0x102c ./Library/src/my_led.o
+ .debug_macro   0x00000000      0x154 ./Library/src/my_led.o
+ .debug_macro   0x00000000      0x114 ./Library/src/my_led.o
+ .debug_macro   0x00000000      0x3b6 ./Library/src/my_led.o
+ .debug_macro   0x00000000       0xac ./Library/src/my_led.o
+ .debug_macro   0x00000000      0x72d ./Library/src/my_led.o
+ .debug_macro   0x00000000      0x228 ./Library/src/my_led.o
+ .debug_macro   0x00000000       0x66 ./Library/src/my_led.o
+ .debug_macro   0x00000000      0x3bb ./Library/src/my_led.o
+ .debug_macro   0x00000000      0x3e4 ./Library/src/my_led.o
+ .debug_macro   0x00000000      0x275 ./Library/src/my_led.o
+ .debug_macro   0x00000000      0x3ca ./Library/src/my_led.o
+ .debug_macro   0x00000000      0x408 ./Library/src/my_led.o
+ .debug_macro   0x00000000       0x51 ./Library/src/my_led.o
+ .debug_macro   0x00000000       0x4a ./Library/src/my_led.o
+ .debug_macro   0x00000000      0x22c ./Library/src/my_led.o
+ .debug_macro   0x00000000       0x67 ./Library/src/my_led.o
+ .debug_macro   0x00000000       0xa5 ./Library/src/my_led.o
+ .debug_macro   0x00000000      0x1c4 ./Library/src/my_led.o
+ .debug_macro   0x00000000      0x25e ./Library/src/my_led.o
+ .debug_macro   0x00000000       0x35 ./Library/src/my_led.o
+ .debug_macro   0x00000000      0x693 ./Library/src/my_led.o
+ .debug_macro   0x00000000       0xa6 ./Library/src/my_led.o
+ .debug_macro   0x00000000      0x5ac ./Library/src/my_led.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .group         0x00000000        0xc ./Library/src/my_uart3.o
+ .text          0x00000000        0x0 ./Library/src/my_uart3.o
+ .data          0x00000000        0x0 ./Library/src/my_uart3.o
+ .bss           0x00000000        0x0 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000      0xaf6 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000      0x232 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0x2e ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0x3b ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0x22 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0x8e ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0x51 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000      0x103 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0x6a ./Library/src/my_uart3.o
+ .debug_macro   0x00000000      0x1df ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0x1c ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0x22 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0xfb ./Library/src/my_uart3.o
+ .debug_macro   0x00000000     0x1305 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000      0x11f ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0x27 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000    0x261cc ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0x6d ./Library/src/my_uart3.o
+ .debug_macro   0x00000000     0x3d79 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000      0x190 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0x61 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0x29 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0x43 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0x34 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000      0x364 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0x16 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0x4a ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0x34 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0x10 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0x58 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0x8e ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0x1c ./Library/src/my_uart3.o
+ .debug_macro   0x00000000      0x17e ./Library/src/my_uart3.o
+ .debug_macro   0x00000000      0x19b ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0x5d ./Library/src/my_uart3.o
+ .debug_macro   0x00000000     0x240e ./Library/src/my_uart3.o
+ .debug_macro   0x00000000     0x102c ./Library/src/my_uart3.o
+ .debug_macro   0x00000000      0x154 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000      0x114 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000      0x3b6 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0xac ./Library/src/my_uart3.o
+ .debug_macro   0x00000000      0x72d ./Library/src/my_uart3.o
+ .debug_macro   0x00000000      0x228 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0x66 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000      0x3bb ./Library/src/my_uart3.o
+ .debug_macro   0x00000000      0x3e4 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000      0x275 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000      0x3ca ./Library/src/my_uart3.o
+ .debug_macro   0x00000000      0x408 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0x51 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0x4a ./Library/src/my_uart3.o
+ .debug_macro   0x00000000      0x22c ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0x67 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0xa5 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000      0x1c4 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000      0x25e ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0x35 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000      0x693 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0xa6 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000      0x5ac ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0x58 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0x1c ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0x3c ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0x16 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000      0x146 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0x16 ./Library/src/my_uart3.o
+ .debug_macro   0x00000000       0x20 ./Library/src/my_uart3.o
  .text          0x00000000        0x0 /Applications/STM32CubeIDE.app/Contents/Eclipse/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.macos64_1.0.100.202602081740/tools/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/lib/thumb/v7e-m+dp/hard/libc_nano.a(libc_a-exit.o)
  .data          0x00000000        0x0 /Applications/STM32CubeIDE.app/Contents/Eclipse/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.macos64_1.0.100.202602081740/tools/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/lib/thumb/v7e-m+dp/hard/libc_nano.a(libc_a-exit.o)
  .bss           0x00000000        0x0 /Applications/STM32CubeIDE.app/Contents/Eclipse/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.macos64_1.0.100.202602081740/tools/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/lib/thumb/v7e-m+dp/hard/libc_nano.a(libc_a-exit.o)
@@ -4663,8 +4811,9 @@ LOAD ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_tim.o
 LOAD ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_tim_ex.o
 LOAD ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart.o
 LOAD ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart_ex.o
-LOAD ./src/my_led.o
-LOAD ./src/my_uart3.o
+LOAD ./Library/src/my_keypad.o
+LOAD ./Library/src/my_led.o
+LOAD ./Library/src/my_uart3.o
 START GROUP
 LOAD /Applications/STM32CubeIDE.app/Contents/Eclipse/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.macos64_1.0.100.202602081740/tools/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/lib/thumb/v7e-m+dp/hard/libc_nano.a
 LOAD /Applications/STM32CubeIDE.app/Contents/Eclipse/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.macos64_1.0.100.202602081740/tools/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/lib/thumb/v7e-m+dp/hard/libm.a
@@ -5070,37 +5219,37 @@ LOAD /Applications/STM32CubeIDE.app/Contents/Eclipse/plugins/com.st.stm32cube.id
  .text.UARTEx_SetNbDataToProcess
                 0x08006778       0x9c ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart_ex.o
  .text.LED_GPIO_Init
-                0x08006814       0xc0 ./src/my_led.o
+                0x08006814       0xc0 ./Library/src/my_led.o
                 0x08006814                LED_GPIO_Init
  .text.LED_Init
-                0x080068d4        0xc ./src/my_led.o
+                0x080068d4        0xc ./Library/src/my_led.o
                 0x080068d4                LED_Init
  .text.open_all_led
-                0x080068e0       0x44 ./src/my_led.o
+                0x080068e0       0x44 ./Library/src/my_led.o
                 0x080068e0                open_all_led
  .text.close_all_led
-                0x08006924       0x44 ./src/my_led.o
+                0x08006924       0x44 ./Library/src/my_led.o
                 0x08006924                close_all_led
  .text.toggle_all_led
-                0x08006968       0x44 ./src/my_led.o
+                0x08006968       0x44 ./Library/src/my_led.o
                 0x08006968                toggle_all_led
  .text.toggle_single_led
-                0x080069ac       0x44 ./src/my_led.o
+                0x080069ac       0x44 ./Library/src/my_led.o
                 0x080069ac                toggle_single_led
  .text.read_led_state
-                0x080069f0       0x48 ./src/my_led.o
+                0x080069f0       0x48 ./Library/src/my_led.o
                 0x080069f0                read_led_state
  .text.UART3_GPIO_Init
-                0x08006a38       0x70 ./src/my_uart3.o
+                0x08006a38       0x70 ./Library/src/my_uart3.o
                 0x08006a38                UART3_GPIO_Init
  .text.UART3_Init
-                0x08006aa8       0x9c ./src/my_uart3.o
+                0x08006aa8       0x9c ./Library/src/my_uart3.o
                 0x08006aa8                UART3_Init
  .text.printf_uart3
-                0x08006b44       0x64 ./src/my_uart3.o
+                0x08006b44       0x64 ./Library/src/my_uart3.o
                 0x08006b44                printf_uart3
  .text.read_uart3
-                0x08006ba8       0x8c ./src/my_uart3.o
+                0x08006ba8       0x8c ./Library/src/my_uart3.o
                 0x08006ba8                read_uart3
  .text._vsnprintf_r
                 0x08006c34       0x5c /Applications/STM32CubeIDE.app/Contents/Eclipse/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.macos64_1.0.100.202602081740/tools/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/lib/thumb/v7e-m+dp/hard/libc_nano.a(libc_a-vsnprintf.o)
@@ -5268,15 +5417,15 @@ LOAD /Applications/STM32CubeIDE.app/Contents/Eclipse/plugins/com.st.stm32cube.id
                 0x2400000c                uwTickFreq
  *fill*         0x2400000d        0x3 
  .data.LED_PORT_ARRAY
-                0x24000010        0xc ./src/my_led.o
+                0x24000010        0xc ./Library/src/my_led.o
                 0x24000010                LED_PORT_ARRAY
  .data.LED_PIN_ARRAY
-                0x2400001c        0x6 ./src/my_led.o
+                0x2400001c        0x6 ./Library/src/my_led.o
                 0x2400001c                LED_PIN_ARRAY
  *fill*         0x24000022        0x2 
- .data.timeout  0x24000024        0x4 ./src/my_uart3.o
+ .data.timeout  0x24000024        0x4 ./Library/src/my_uart3.o
  .data.max_len.0
-                0x24000028        0x2 ./src/my_uart3.o
+                0x24000028        0x2 ./Library/src/my_uart3.o
  *fill*         0x2400002a        0x2 
  .data._impure_ptr
                 0x2400002c        0x4 /Applications/STM32CubeIDE.app/Contents/Eclipse/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.macos64_1.0.100.202602081740/tools/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/lib/thumb/v7e-m+dp/hard/libc_nano.a(libc_a-impure.o)
@@ -5303,10 +5452,10 @@ LOAD /Applications/STM32CubeIDE.app/Contents/Eclipse/plugins/com.st.stm32cube.id
                 0x24000098        0x4 ./Core/Src/sysmem.o
  .bss.uwTick    0x2400009c        0x4 ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal.o
                 0x2400009c                uwTick
- .bss.huart3    0x240000a0       0x94 ./src/my_uart3.o
+ .bss.huart3    0x240000a0       0x94 ./Library/src/my_uart3.o
                 0x240000a0                huart3
  .bss.uart3_read_data
-                0x24000134      0x100 ./src/my_uart3.o
+                0x24000134      0x100 ./Library/src/my_uart3.o
                 0x24000134                uart3_read_data
  .bss.__sf      0x24000234      0x138 /Applications/STM32CubeIDE.app/Contents/Eclipse/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.macos64_1.0.100.202602081740/tools/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/lib/thumb/v7e-m+dp/hard/libc_nano.a(libc_a-findfp.o)
                 0x24000234                __sf
@@ -5382,9 +5531,9 @@ LOAD /Applications/STM32CubeIDE.app/Contents/Eclipse/plugins/com.st.stm32cube.id
  .ARM.attributes
                 0x000002fd       0x32 ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart_ex.o
  .ARM.attributes
-                0x0000032f       0x32 ./src/my_led.o
+                0x0000032f       0x32 ./Library/src/my_led.o
  .ARM.attributes
-                0x00000361       0x32 ./src/my_uart3.o
+                0x00000361       0x32 ./Library/src/my_uart3.o
  .ARM.attributes
                 0x00000393       0x32 /Applications/STM32CubeIDE.app/Contents/Eclipse/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.macos64_1.0.100.202602081740/tools/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/lib/thumb/v7e-m+dp/hard/libc_nano.a(libc_a-findfp.o)
  .ARM.attributes
@@ -5455,8 +5604,8 @@ LOAD /Applications/STM32CubeIDE.app/Contents/Eclipse/plugins/com.st.stm32cube.id
  .debug_info    0x00008f77     0x1225 ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_rcc_ex.o
  .debug_info    0x0000a19c     0x4b1d ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart.o
  .debug_info    0x0000ecb9      0xfbf ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart_ex.o
- .debug_info    0x0000fc78      0x7b2 ./src/my_led.o
- .debug_info    0x0001042a      0xe22 ./src/my_uart3.o
+ .debug_info    0x0000fc78      0x7b2 ./Library/src/my_led.o
+ .debug_info    0x0001042a      0xe22 ./Library/src/my_uart3.o
 
 .debug_abbrev   0x00000000     0x24be
  .debug_abbrev  0x00000000      0x262 ./Core/Src/main.o
@@ -5474,8 +5623,8 @@ LOAD /Applications/STM32CubeIDE.app/Contents/Eclipse/plugins/com.st.stm32cube.id
  .debug_abbrev  0x000017ad      0x269 ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_rcc_ex.o
  .debug_abbrev  0x00001a16      0x33d ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart.o
  .debug_abbrev  0x00001d53      0x2d2 ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart_ex.o
- .debug_abbrev  0x00002025      0x22e ./src/my_led.o
- .debug_abbrev  0x00002253      0x26b ./src/my_uart3.o
+ .debug_abbrev  0x00002025      0x22e ./Library/src/my_led.o
+ .debug_abbrev  0x00002253      0x26b ./Library/src/my_uart3.o
 
 .debug_aranges  0x00000000      0xb60
  .debug_aranges
@@ -5509,9 +5658,9 @@ LOAD /Applications/STM32CubeIDE.app/Contents/Eclipse/plugins/com.st.stm32cube.id
  .debug_aranges
                 0x00000a20       0xa8 ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart_ex.o
  .debug_aranges
-                0x00000ac8       0x60 ./src/my_led.o
+                0x00000ac8       0x60 ./Library/src/my_led.o
  .debug_aranges
-                0x00000b28       0x38 ./src/my_uart3.o
+                0x00000b28       0x38 ./Library/src/my_uart3.o
 
 .debug_rnglists
                 0x00000000      0x8b8
@@ -5546,9 +5695,9 @@ LOAD /Applications/STM32CubeIDE.app/Contents/Eclipse/plugins/com.st.stm32cube.id
  .debug_rnglists
                 0x000007ce       0x7f ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart_ex.o
  .debug_rnglists
-                0x0000084d       0x44 ./src/my_led.o
+                0x0000084d       0x44 ./Library/src/my_led.o
  .debug_rnglists
-                0x00000891       0x27 ./src/my_uart3.o
+                0x00000891       0x27 ./Library/src/my_uart3.o
 
 .debug_macro    0x00000000    0x36b5c
  .debug_macro   0x00000000      0x2ef ./Core/Src/main.o
@@ -5632,10 +5781,10 @@ LOAD /Applications/STM32CubeIDE.app/Contents/Eclipse/plugins/com.st.stm32cube.id
  .debug_macro   0x00035d68      0x2b2 ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_rcc_ex.o
  .debug_macro   0x0003601a      0x2bf ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart.o
  .debug_macro   0x000362d9      0x2a0 ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart_ex.o
- .debug_macro   0x00036579      0x2a3 ./src/my_led.o
- .debug_macro   0x0003681c       0x28 ./src/my_led.o
- .debug_macro   0x00036844      0x2fc ./src/my_uart3.o
- .debug_macro   0x00036b40       0x1c ./src/my_uart3.o
+ .debug_macro   0x00036579      0x2a3 ./Library/src/my_led.o
+ .debug_macro   0x0003681c       0x28 ./Library/src/my_led.o
+ .debug_macro   0x00036844      0x2fc ./Library/src/my_uart3.o
+ .debug_macro   0x00036b40       0x1c ./Library/src/my_uart3.o
 
 .debug_line     0x00000000    0x11945
  .debug_line    0x00000000      0xa02 ./Core/Src/main.o
@@ -5653,8 +5802,8 @@ LOAD /Applications/STM32CubeIDE.app/Contents/Eclipse/plugins/com.st.stm32cube.id
  .debug_line    0x0000a0ad     0x1dd7 ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_rcc_ex.o
  .debug_line    0x0000be84     0x38ab ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart.o
  .debug_line    0x0000f72f      0xdba ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart_ex.o
- .debug_line    0x000104e9      0xa3e ./src/my_led.o
- .debug_line    0x00010f27      0xa1e ./src/my_uart3.o
+ .debug_line    0x000104e9      0xa3e ./Library/src/my_led.o
+ .debug_line    0x00010f27      0xa1e ./Library/src/my_uart3.o
 
 .debug_str      0x00000000   0x159fd7
  .debug_str     0x00000000   0x159fd7 ./Core/Src/main.o
@@ -5673,8 +5822,8 @@ LOAD /Applications/STM32CubeIDE.app/Contents/Eclipse/plugins/com.st.stm32cube.id
  .debug_str     0x00159fd7   0x1557c8 ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_rcc_ex.o
  .debug_str     0x00159fd7   0x155e28 ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart.o
  .debug_str     0x00159fd7   0x1553e8 ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart_ex.o
- .debug_str     0x00159fd7   0x154e57 ./src/my_led.o
- .debug_str     0x00159fd7   0x155b08 ./src/my_uart3.o
+ .debug_str     0x00159fd7   0x154e57 ./Library/src/my_led.o
+ .debug_str     0x00159fd7   0x155b08 ./Library/src/my_uart3.o
 
 .comment        0x00000000       0x43
  .comment       0x00000000       0x43 ./Core/Src/main.o
@@ -5692,8 +5841,8 @@ LOAD /Applications/STM32CubeIDE.app/Contents/Eclipse/plugins/com.st.stm32cube.id
  .comment       0x00000043       0x44 ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_rcc_ex.o
  .comment       0x00000043       0x44 ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart.o
  .comment       0x00000043       0x44 ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart_ex.o
- .comment       0x00000043       0x44 ./src/my_led.o
- .comment       0x00000043       0x44 ./src/my_uart3.o
+ .comment       0x00000043       0x44 ./Library/src/my_led.o
+ .comment       0x00000043       0x44 ./Library/src/my_uart3.o
 
 .debug_frame    0x00000000     0x3098
  .debug_frame   0x00000000       0x6c ./Core/Src/main.o
@@ -5710,8 +5859,8 @@ LOAD /Applications/STM32CubeIDE.app/Contents/Eclipse/plugins/com.st.stm32cube.id
  .debug_frame   0x000017e4      0x3d4 ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_rcc_ex.o
  .debug_frame   0x00001bb8      0xa18 ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart.o
  .debug_frame   0x000025d0      0x29c ./Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart_ex.o
- .debug_frame   0x0000286c      0x14c ./src/my_led.o
- .debug_frame   0x000029b8       0xb0 ./src/my_uart3.o
+ .debug_frame   0x0000286c      0x14c ./Library/src/my_led.o
+ .debug_frame   0x000029b8       0xb0 ./Library/src/my_uart3.o
  .debug_frame   0x00002a68      0x144 /Applications/STM32CubeIDE.app/Contents/Eclipse/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.macos64_1.0.100.202602081740/tools/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/lib/thumb/v7e-m+dp/hard/libc_nano.a(libc_a-findfp.o)
  .debug_frame   0x00002bac       0x4c /Applications/STM32CubeIDE.app/Contents/Eclipse/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.macos64_1.0.100.202602081740/tools/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/lib/thumb/v7e-m+dp/hard/libc_nano.a(libc_a-vsnprintf.o)
  .debug_frame   0x00002bf8       0x20 /Applications/STM32CubeIDE.app/Contents/Eclipse/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.macos64_1.0.100.202602081740/tools/bin/../lib/gcc/arm-none-eabi/14.3.1/../../../../arm-none-eabi/lib/thumb/v7e-m+dp/hard/libc_nano.a(libc_a-memset.o)
