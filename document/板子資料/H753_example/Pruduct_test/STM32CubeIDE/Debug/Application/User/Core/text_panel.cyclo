@@ -1,0 +1,6 @@
+../Application/User/Core/text_panel.c:20:6:text_panel_init	1
+../Application/User/Core/text_panel.c:25:6:text_panel_seek	1
+../Application/User/Core/text_panel.c:31:6:text_panel_set	1
+../Application/User/Core/text_panel.c:37:6:text_panel_end	1
+../Application/User/Core/text_panel.c:43:5:text_panael_pos	1
+../Application/User/Core/text_panel.c:47:5:text_panel_print	9

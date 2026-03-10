@@ -1,0 +1,11 @@
+../Application/User/SSD1289/SSD1289_STM32F753xx_proting.c:16:13:_send_spi_data	32	static
+../Application/User/SSD1289/SSD1289_STM32F753xx_proting.c:39:6:stm32h7_ssd1289_set_cs	24	static
+../Application/User/SSD1289/SSD1289_STM32F753xx_proting.c:57:6:stm32h7_ssd1289_set_dc	24	static
+../Application/User/SSD1289/SSD1289_STM32F753xx_proting.c:75:6:stm32h7_ssd1289_reset	8	static
+../Application/User/SSD1289/SSD1289_STM32F753xx_proting.c:87:6:stm32h7_ssd1289_init_sig	8	static
+../Application/User/SSD1289/SSD1289_STM32F753xx_proting.c:96:6:stm32h7_ssd1289_put_command	16	static
+../Application/User/SSD1289/SSD1289_STM32F753xx_proting.c:105:6:stm32h7_write_data	16	static
+../Application/User/SSD1289/SSD1289_STM32F753xx_proting.c:113:6:stm32h7_ssd1289_put_data	16	static
+../Application/User/SSD1289/SSD1289_STM32F753xx_proting.c:117:6:stm32h7_ssd1289_put_reg	16	static
+../Application/User/SSD1289/SSD1289_STM32F753xx_proting.c:125:6:stm32h7_ssd1289_delayMs	16	static
+../Application/User/SSD1289/SSD1289_STM32F753xx_proting.c:129:6:stm32h7_ssd1289_reg_wirte_block	40	static

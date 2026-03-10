@@ -1,0 +1,6 @@
+../Application/User/Core/rotary.c:10:13:_invoke_callback	16	static
+../Application/User/Core/rotary.c:19:13:_record_event	16	static
+../Application/User/Core/rotary.c:24:6:rotary_init	24	static
+../Application/User/Core/rotary.c:33:6:rotary_set_callback	16	static
+../Application/User/Core/rotary.c:37:6:rotary_reset	16	static
+../Application/User/Core/rotary.c:41:6:rotary_event	16	static
