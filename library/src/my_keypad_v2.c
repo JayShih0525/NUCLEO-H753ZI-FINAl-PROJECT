@@ -101,7 +101,7 @@ static void this_HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 		HAL_GPIO_WritePin(GPIOF, GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2, GPIO_PIN_SET);
 
 		HAL_GPIO_WritePin(COL_PORT[col], COL_PIN[col], GPIO_PIN_RESET);
-		HAL_Delay(2);
+		while(HAL_GPIO_ReadPin(COL_PORT[col], COL_PIN[col]) != GPIO_PIN_RESET){}
 
 		if(HAL_GPIO_ReadPin(ROW_PORT[which_row], ROW_PIN[which_row]) == GPIO_PIN_RESET){
 			keyValue = which_row * 4 + col + 1;

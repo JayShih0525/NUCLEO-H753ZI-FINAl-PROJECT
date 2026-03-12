@@ -34,7 +34,7 @@ void KEYPAD_GPIO_Init(void){
 	HAL_GPIO_WritePin(GPIOD, GPIO_PIN_0, GPIO_PIN_RESET);
 	GPIO_InitStruct.Pin =  GPIO_PIN_0;
 	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-	GPIO_InitStruct.Pull = GPIO_PULLUP; //
+	GPIO_InitStruct.Pull = GPIO_PULLUP;
 	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
 	HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
@@ -42,7 +42,7 @@ void KEYPAD_GPIO_Init(void){
 	HAL_GPIO_WritePin(GPIOF, GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2, GPIO_PIN_RESET);
 	GPIO_InitStruct.Pin = GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2;
 	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-	GPIO_InitStruct.Pull = GPIO_PULLUP; //
+	GPIO_InitStruct.Pull = GPIO_PULLUP;
 	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
 	HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
 }
@@ -60,7 +60,7 @@ uint8_t read_keypad(void){
 
 		// 選擇 row -> low
 		HAL_GPIO_WritePin(ROW_PORT[row], ROW_PIN[row], GPIO_PIN_RESET);
-		HAL_Delay(2);
+		while(HAL_GPIO_ReadPin(ROW_PORT[row], ROW_PIN[row]) != GPIO_PIN_RESET){}
 
 		for(int col=0; col<4; col++){
 			GPIO_PinState state;
