@@ -61,8 +61,8 @@ all: main-build
 main-build: uart_and_led.elf secondary-outputs
 
 # Tool invocations
-uart_and_led.elf uart_and_led.map: $(OBJS) $(USER_OBJS) /Users/shihyenchieh/Downloads/Graduation\ project/code/uart_and_led/STM32H753ZITX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "uart_and_led.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"/Users/shihyenchieh/Downloads/Graduation project/code/uart_and_led/STM32H753ZITX_FLASH.ld" --specs=nosys.specs -Wl,-Map="uart_and_led.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+uart_and_led.elf uart_and_led.map: $(OBJS) $(USER_OBJS) /Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/uart_and_led/STM32H753ZITX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "uart_and_led.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"/Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/uart_and_led/STM32H753ZITX_FLASH.ld" --specs=nosys.specs -Wl,-Map="uart_and_led.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

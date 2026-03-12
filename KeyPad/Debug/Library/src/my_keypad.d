@@ -1,6 +1,6 @@
 Library/src/my_keypad.o: \
- /Users/shihyenchieh/Downloads/Graduation\ project/code/Library/src/my_keypad.c \
- /Users/shihyenchieh/Downloads/Graduation\ project/code/KeyPad/../Library/inc/my_keypad.h \
+ /Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/Library/src/my_keypad.c \
+ /Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/KeyPad/../Library/inc/my_keypad.h \
  ../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal.h \
  ../Core/Inc/stm32h7xx_hal_conf.h \
  ../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_rcc.h \
@@ -31,7 +31,7 @@ Library/src/my_keypad.o: \
  ../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_pwr_ex.h \
  ../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_uart.h \
  ../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_uart_ex.h
-/Users/shihyenchieh/Downloads/Graduation\ project/code/KeyPad/../Library/inc/my_keypad.h:
+/Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/KeyPad/../Library/inc/my_keypad.h:
 ../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal.h:
 ../Core/Inc/stm32h7xx_hal_conf.h:
 ../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_rcc.h:

@@ -1,6 +1,6 @@
 Library/src/my_uart3.o: \
- /Users/shihyenchieh/Downloads/Graduation\ project/code/Library/src/my_uart3.c \
- /Users/shihyenchieh/Downloads/Graduation\ project/code/uart_and_led/../Library/inc/my_uart3.h \
+ /Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/Library/src/my_uart3.c \
+ /Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/uart_and_led/../Library/inc/my_uart3.h \
  ../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal.h \
  ../Core/Inc/stm32h7xx_hal_conf.h \
  ../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_rcc.h \
@@ -31,7 +31,7 @@ Library/src/my_uart3.o: \
  ../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_pwr_ex.h \
  ../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_uart.h \
  ../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_uart_ex.h
-/Users/shihyenchieh/Downloads/Graduation\ project/code/uart_and_led/../Library/inc/my_uart3.h:
+/Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/uart_and_led/../Library/inc/my_uart3.h:
 ../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal.h:
 ../Core/Inc/stm32h7xx_hal_conf.h:
 ../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_rcc.h:
