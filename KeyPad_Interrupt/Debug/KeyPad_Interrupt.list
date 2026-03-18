@@ -473,7 +473,6 @@ int main(void){
  80006ea:	4619      	mov	r1, r3
  80006ec:	4808      	ldr	r0, [pc, #32]	@ (8000710 <main+0x64>)
  80006ee:	f006 f941 	bl	8006974 <printf_uart3>
-
 			preKeyValue = keyValue = 0;
  80006f2:	2100      	movs	r1, #0
  80006f4:	4b04      	ldr	r3, [pc, #16]	@ (8000708 <main+0x5c>)

@@ -38,7 +38,6 @@ int main(void){
 			else preKeyValue = keyValue;
 
 			printf_uart3("keyValue: %d\n", keyValue);
-
 			preKeyValue = keyValue = 0;
 		}
 	}
