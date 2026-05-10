@@ -75,7 +75,7 @@ void MLKEM_UART_SendPublicKeyTask(UART_HandleTypeDef *huart)
 */
 void MLKEM_UART_DecapsulateTask(UART_HandleTypeDef *huart)
 {
-	uint16_t cipher_len;
+	uint32_t cipher_len;
 	uint8_t status;
 
 	if (kem_ready == 0){

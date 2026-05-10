@@ -30,7 +30,7 @@ static void MX_GPIO_Init(void);
 
 void UART3_Echo_Packet(UART_HandleTypeDef *huart3)
 {
-	uint16_t len;
+	uint32_t len;
 	uint8_t status;
 
 	status = UART3_ReceivePacket(huart3, uart3_rx_buffer, &len);

@@ -48,13 +48,15 @@ class UART3Protocol:
         return data
 
     # =========================
-    # Packet mode
     # Python -> STM32:
-    #   2 bytes length + data
+    #   4 bytes length + data
     #
     # STM32 -> Python:
-    #   1 byte status
-    #   2 bytes length + data
+    #   4 bytes length + data
+    #
+    # Note:
+    #   Python send_packet() waits for 1-byte status from STM32 after sending data.
+    #   STM32 SendPacket() does not send status before packet.
     # =========================
 
     def send_packet(self, data: bytes):
@@ -64,7 +66,7 @@ class UART3Protocol:
         if len(data) > self.max_buffer_size:
             raise ValueError(f"Data too large: {len(data)} bytes")
 
-        length_header = len(data).to_bytes(2, byteorder="big")
+        length_header = len(data).to_bytes(4, byteorder="big")
 
         self.ser.write(length_header)
         self.ser.write(data)
@@ -82,10 +84,10 @@ class UART3Protocol:
         if self.ser is None or not self.ser.is_open:
             raise RuntimeError("Serial port is not open")
 
-        len_bytes = self.read_exact(2, timeout=3.0)
+        len_bytes = self.read_exact(4, timeout=3.0)
 
-        if len(len_bytes) != 2:
-            raise TimeoutError(f"Expected 2 length bytes, got {len(len_bytes)}")
+        if len(len_bytes) != 4:
+            raise TimeoutError(f"Expected 4 length bytes, got {len(len_bytes)}")
 
         length = int.from_bytes(len_bytes, byteorder="big")
 

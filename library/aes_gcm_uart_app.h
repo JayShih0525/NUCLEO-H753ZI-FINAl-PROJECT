@@ -5,7 +5,9 @@
 #include "aes_gcm_lib.h"
 #include <stdint.h>
 
-#define AES_GCM_APP_MAX_SIZE 32768
+//#define AES_GCM_APP_MAX_SIZE 32768
+#define AES_GCM_APP_MAX_SIZE 65536
+// #define AES_GCM_APP_MAX_SIZE 131072
 
 uint8_t AESGCM_UART_Init(void);
 

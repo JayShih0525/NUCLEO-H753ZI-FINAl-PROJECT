@@ -13,7 +13,7 @@
 #define AES_GCM_ERR_SETKEY      	0xA2
 #define AES_GCM_ERR_ENCRYPT     	0xA3
 #define AES_GCM_ERR_DECRYPT     	0xA4
-#define AES_GCM_ERR_AUTH_FAIL   	0xA5
+#define AES_GCM_ERR_AUTH_FAIL   0xA5
 
 uint8_t AESGCM_SetKey(
 	const uint8_t *key,

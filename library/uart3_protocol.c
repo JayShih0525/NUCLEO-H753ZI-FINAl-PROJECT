@@ -83,20 +83,24 @@ void UART3_SendStatus(UART_HandleTypeDef *huart, uint8_t status)
 	HAL_UART_Transmit(huart, &status, 1, HAL_MAX_DELAY);
 }
 
-uint8_t UART3_ReceivePacket(UART_HandleTypeDef *huart, uint8_t *buffer, uint16_t *out_len)
+uint8_t UART3_ReceivePacket(UART_HandleTypeDef *huart, uint8_t *buffer, uint32_t *out_len)
 {
-	uint8_t len_bytes[2];
-	uint16_t len;
-	uint16_t received = 0;
+	uint8_t len_bytes[4];
+	uint32_t len;
+	uint32_t received = 0;
 
-	// 1. 先收 2 bytes 總長度
-	if (HAL_UART_Receive(huart, len_bytes, 2, HAL_MAX_DELAY) != HAL_OK){
+	// 1. 先收 4 bytes 總長度
+	if (HAL_UART_Receive(huart, len_bytes, 4, HAL_MAX_DELAY) != HAL_OK){
 		UART3_SendStatus(huart, UART3_ERR_RX_LEN);
 		return UART3_ERR_RX_LEN;
 	}
 
 	// 2. big-endian length
-	len = ((uint16_t)len_bytes[0] << 8) | len_bytes[1];
+	len =
+	    ((uint32_t)len_bytes[0] << 24) |
+	    ((uint32_t)len_bytes[1] << 16) |
+	    ((uint32_t)len_bytes[2] << 8)  |
+	    ((uint32_t)len_bytes[3]);
 
 	// 3. 檢查長度
 	if (len > UART3_MAX_BUFFER_SIZE){
@@ -106,18 +110,18 @@ uint8_t UART3_ReceivePacket(UART_HandleTypeDef *huart, uint8_t *buffer, uint16_t
 
 	// 4. 分次收 data
 	while (received < len){
-		uint16_t remain = len - received;
+		uint32_t remain = len - received;
 		uint16_t chunk_len;
 
 		if (remain > UART3_CHUNK_SIZE) chunk_len = UART3_CHUNK_SIZE;
-		else chunk_len = remain;
+		else chunk_len = (uint16_t)remain;
 
 		if (HAL_UART_Receive(huart, buffer + received, chunk_len, HAL_MAX_DELAY) != HAL_OK){
 			UART3_SendStatus(huart, UART3_ERR_RX_DATA);
 			return UART3_ERR_RX_DATA;
 		}
 
-		received += chunk_len;
+		received += (uint32_t)chunk_len;
 	}
 
 	*out_len = len;
@@ -128,37 +132,39 @@ uint8_t UART3_ReceivePacket(UART_HandleTypeDef *huart, uint8_t *buffer, uint16_t
 	return UART3_OK;
 }
 
-uint8_t UART3_SendPacket(UART_HandleTypeDef *huart, uint8_t *data, uint16_t len)
+uint8_t UART3_SendPacket(UART_HandleTypeDef *huart, uint8_t *data, uint32_t len)
 {
-	uint8_t len_bytes[2];
-	uint16_t sent = 0;
+	uint8_t len_bytes[4];
+	uint32_t sent = 0;
 
 	if (len > UART3_MAX_BUFFER_SIZE){
 		UART3_SendStatus(huart, UART3_ERR_LEN_TOO_BIG);
 		return UART3_ERR_LEN_TOO_BIG;
 	}
 
-	len_bytes[0] = (uint8_t)(len >> 8);
-	len_bytes[1] = (uint8_t)(len & 0xFF);
+	len_bytes[0] = (uint8_t)((len >> 24) & 0xFF);
+	len_bytes[1] = (uint8_t)((len >> 16) & 0xFF);
+	len_bytes[2] = (uint8_t)((len >> 8) & 0xFF);
+	len_bytes[3] = (uint8_t)(len & 0xFF);
 
-	// 1. 先送 2 bytes 總長度
-	if (HAL_UART_Transmit(huart, len_bytes, 2, HAL_MAX_DELAY) != HAL_OK){
+	// 1. 先送 4 bytes 總長度
+	if (HAL_UART_Transmit(huart, len_bytes, 4, HAL_MAX_DELAY) != HAL_OK){
 		return UART3_ERR_TX_DATA;
 	}
 
 	// 2. 分次送 data
 	while (sent < len){
-		uint16_t remain = len - sent;
+		uint32_t remain = len - sent;
 		uint16_t chunk_len;
 
 		if (remain > UART3_CHUNK_SIZE) chunk_len = UART3_CHUNK_SIZE;
-		else chunk_len = remain;
+		else chunk_len = (uint16_t)remain;
 
 		if (HAL_UART_Transmit(huart, data + sent, chunk_len, HAL_MAX_DELAY) != HAL_OK){
 			return UART3_ERR_TX_DATA;
 		}
 
-		sent += chunk_len;
+		sent += (uint32_t)chunk_len;
 	}
 
 	return UART3_OK;
@@ -169,7 +175,7 @@ void UART3_Printf(UART_HandleTypeDef *huart, uint32_t timeout, const char *forma
 {
 	char buffer[256];
 	va_list args;
-	int len;
+	uint16_t len;
 
 	if (huart == NULL || format == NULL) return;
 
@@ -184,7 +190,7 @@ void UART3_Printf(UART_HandleTypeDef *huart, uint32_t timeout, const char *forma
 }
 
 
-uint16_t UART3_ReadLine(UART_HandleTypeDef *huart, uint8_t *read_data, uint16_t max_len, uint32_t timeout)
+uint16_t UART3_ReadLine(UART_HandleTypeDef *huart, uint8_t *read_data, uint32_t max_len, uint32_t timeout)
 {
 	uint16_t data_len = 0;
 	uint8_t rx_char;

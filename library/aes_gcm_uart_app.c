@@ -42,7 +42,7 @@ uint8_t AESGCM_UART_Init(void)
 
 void AESGCM_UART_EncryptTask(UART_HandleTypeDef *huart)
 {
-	uint16_t len;
+	uint32_t len;
 	uint8_t status;
 
 	UART3_Printf(huart, HAL_MAX_DELAY, "READY\n");
@@ -77,9 +77,9 @@ void AESGCM_UART_EncryptTask(UART_HandleTypeDef *huart)
 
 void AESGCM_UART_DecryptTask(UART_HandleTypeDef *huart)
 {
-	uint16_t nonce_len;
-	uint16_t cipher_len;
-	uint16_t tag_len;
+	uint32_t nonce_len;
+	uint32_t cipher_len;
+	uint32_t tag_len;
 	uint8_t status;
 	uint8_t received_nonce[12];
 

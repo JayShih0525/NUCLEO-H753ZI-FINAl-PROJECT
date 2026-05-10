@@ -17,21 +17,22 @@ from library.url_screen_capture import URLScreenCapture
 URL = "http://172.20.10.2:8080/stream.mjpg"
 
 PORT = "/dev/cu.usbmodem1103"
-BAUD = 1200000
-MAX_BUFFER_SIZE = 32768
+BAUD = 4000000
+MAX_BUFFER_SIZE = 65535
 TIMEOUT = 0.01
 
 # 這是實際送去 STM32 加密的圖片大小
 DATA_WIDTH = 640
 DATA_HEIGHT = 480
-JPEG_QUALITY = 72
+# JPEG_QUALITY = 80, almost will not have error
+JPEG_QUALITY = 10
 
 # 這只是顯示視窗大小，不影響加密資料大小
 DISPLAY_WIDTH = 640
 DISPLAY_HEIGHT = 480
 
 # 每幾秒送一張 frame 給 STM32 加密
-ENCRYPT_GAP = 1.0
+ENCRYPT_GAP = 0.0
 
 
 # ============================================================
