@@ -1,7 +1,0 @@
-../Application/User/Core/segment.c:17:12:segment_new	24	static
-../Application/User/Core/segment.c:26:6:segment_distroy	16	static
-../Application/User/Core/segment.c:31:6:segment_str_set	24	static
-../Application/User/Core/segment.c:45:6:segment_num_set	24	static
-../Application/User/Core/segment.c:52:6:segment_float_set	40	static
-../Application/User/Core/segment.c:66:6:segment_flush	24	static
-../Application/User/Core/segment.c:74:13:_flush	112	static

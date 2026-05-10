@@ -1,8 +1,0 @@
-../Application/User/Core/lcd_touch.c:25:13:LCD_SetPin_InputPullup	1
-../Application/User/Core/lcd_touch.c:36:13:LCD_SetPin_InputFloating	1
-../Application/User/Core/lcd_touch.c:47:13:LCD_SetPin_OutputPP	1
-../Application/User/Core/lcd_touch.c:60:13:LCD_SetPin_Analog	1
-../Application/User/Core/lcd_touch.c:81:13:LCD_Touch_Set_Standby	1
-../Application/User/Core/lcd_touch.c:90:6:LCD_Touch_Init	1
-../Application/User/Core/lcd_touch.c:99:6:LCD_Touch_Get_Position	3
-../Application/User/Core/lcd_touch.c:152:6:LCD_Touch_is_Touching	2

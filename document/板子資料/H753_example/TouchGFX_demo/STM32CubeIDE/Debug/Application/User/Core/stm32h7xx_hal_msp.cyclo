@@ -1,7 +1,0 @@
-D:/project/H753_example/TouchGFX_demo/Core/Src/stm32h7xx_hal_msp.c:66:6:HAL_MspInit	1
-D:/project/H753_example/TouchGFX_demo/Core/Src/stm32h7xx_hal_msp.c:88:6:HAL_CRC_MspInit	2
-D:/project/H753_example/TouchGFX_demo/Core/Src/stm32h7xx_hal_msp.c:111:6:HAL_CRC_MspDeInit	2
-D:/project/H753_example/TouchGFX_demo/Core/Src/stm32h7xx_hal_msp.c:133:6:HAL_SPI_MspInit	4
-D:/project/H753_example/TouchGFX_demo/Core/Src/stm32h7xx_hal_msp.c:204:6:HAL_SPI_MspDeInit	2
-D:/project/H753_example/TouchGFX_demo/Core/Src/stm32h7xx_hal_msp.c:239:6:HAL_TIM_Base_MspInit	2
-D:/project/H753_example/TouchGFX_demo/Core/Src/stm32h7xx_hal_msp.c:265:6:HAL_TIM_Base_MspDeInit	2

@@ -1,0 +1,3 @@
+/Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/library/aes_gcm_lib.c:8:9:AESGCM_SetKey	4
+/Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/library/aes_gcm_lib.c:35:9:AESGCM_Encrypt	7
+/Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/library/aes_gcm_lib.c:63:9:AESGCM_Decrypt	7

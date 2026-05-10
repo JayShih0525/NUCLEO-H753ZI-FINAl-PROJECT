@@ -5,4 +5,4 @@
 /Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/LCD_8bits/Core/Src/main.c:274:13:MX_USART3_UART_Init	5
 /Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/LCD_8bits/Core/Src/main.c:322:13:MX_USB_OTG_FS_PCD_Init	2
 /Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/LCD_8bits/Core/Src/main.c:358:13:MX_GPIO_Init	1
-/Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/LCD_8bits/Core/Src/main.c:487:6:Error_Handler	1
+/Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/LCD_8bits/Core/Src/main.c:476:6:Error_Handler	1

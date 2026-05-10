@@ -1,6 +1,0 @@
-../Application/User/Core/text_panel.c:20:6:text_panel_init	72	static
-../Application/User/Core/text_panel.c:25:6:text_panel_seek	16	static,ignoring_inline_asm
-../Application/User/Core/text_panel.c:31:6:text_panel_set	4	static,ignoring_inline_asm
-../Application/User/Core/text_panel.c:37:6:text_panel_end	4	static,ignoring_inline_asm
-../Application/User/Core/text_panel.c:43:5:text_panael_pos	4	static
-../Application/User/Core/text_panel.c:47:5:text_panel_print	552	static,ignoring_inline_asm

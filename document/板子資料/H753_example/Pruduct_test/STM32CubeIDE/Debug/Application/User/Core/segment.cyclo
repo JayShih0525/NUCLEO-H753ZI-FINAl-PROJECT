@@ -1,7 +1,0 @@
-../Application/User/Core/segment.c:17:12:segment_new	2
-../Application/User/Core/segment.c:26:6:segment_distroy	2
-../Application/User/Core/segment.c:31:6:segment_str_set	6
-../Application/User/Core/segment.c:45:6:segment_num_set	2
-../Application/User/Core/segment.c:52:6:segment_float_set	3
-../Application/User/Core/segment.c:66:6:segment_flush	2
-../Application/User/Core/segment.c:74:13:_flush	3

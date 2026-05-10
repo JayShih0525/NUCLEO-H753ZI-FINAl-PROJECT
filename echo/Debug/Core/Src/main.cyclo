@@ -1,0 +1,6 @@
+../Core/Src/main.c:32:6:UART3_Echo_Packet	2
+../Core/Src/main.c:45:5:main	3
+../Core/Src/main.c:76:6:SystemClock_Config	4
+../Core/Src/main.c:127:13:MX_USART3_UART_Init	5
+../Core/Src/main.c:177:13:MX_GPIO_Init	1
+../Core/Src/main.c:201:6:Error_Handler	1
