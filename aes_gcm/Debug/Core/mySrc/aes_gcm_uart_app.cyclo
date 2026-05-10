@@ -1,5 +1,0 @@
-/Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/library/aes_gcm_uart_app.c:30:13:AESGCM_IncrementNonce	3
-/Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/library/aes_gcm_uart_app.c:38:9:AESGCM_UART_Init	1
-/Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/library/aes_gcm_uart_app.c:43:6:AESGCM_UART_EncryptTask	3
-/Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/library/aes_gcm_uart_app.c:78:6:AESGCM_UART_DecryptTask	7
-/Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/library/aes_gcm_uart_app.c:125:6:AESGCM_UART_CommandLoop	5

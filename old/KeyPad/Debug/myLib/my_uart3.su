@@ -1,4 +1,0 @@
-/Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/library/src/my_uart3.c:10:6:UART3_GPIO_Init	24	static
-/Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/library/src/my_uart3.c:17:6:UART3_Init	8	static
-/Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/library/src/my_uart3.c:50:6:printf_uart3	272	static
-/Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/library/src/my_uart3.c:63:10:read_uart3	24	static

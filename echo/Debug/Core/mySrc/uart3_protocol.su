@@ -1,8 +1,0 @@
-/Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/library/uart3_protocol.c:7:6:UART3_ClearRxBuffer	8	static
-/Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/library/uart3_protocol.c:12:6:UART3_ClearHardwareRx	24	static
-/Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/library/uart3_protocol.c:43:6:UART3_ClearAll	16	static
-/Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/library/uart3_protocol.c:49:6:UART3_SendStatus	16	static
-/Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/library/uart3_protocol.c:54:9:UART3_ReceivePacket	40	static
-/Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/library/uart3_protocol.c:99:9:UART3_SendPacket	32	static
-/Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/library/uart3_protocol.c:136:6:UART3_Printf	280	static
-/Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/library/uart3_protocol.c:155:10:UART3_ReadLine	32	static
