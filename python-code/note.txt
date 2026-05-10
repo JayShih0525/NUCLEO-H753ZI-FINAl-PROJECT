@@ -1,8 +1,20 @@
 install python venv
-python3 -m venv .venv
-
-install jupyter
-python -m pip install notebook ipykernel
+python3.10 -m venv .venv
 
 open venv
 source .venv/bin/activate
+
+check venv python version
+cat .venv/pyvenv.cfg
+
+update python venv
+pip install --upgrade pip
+
+update pip / setuptools / wheel
+python -m pip install --upgrade pip setuptools wheel
+
+install python library
+pip install -r requirements.txt
+
+install jupyter
+python -m ipykernel install --user --name stm32-pqc --display-name "Python (STM32)"

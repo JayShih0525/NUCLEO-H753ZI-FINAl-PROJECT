@@ -1,8 +1,6 @@
-#!/Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/python-code/.venv/bin/python
-# -*- coding: utf-8 -*-
-import re
+#!/Users/shihyenchieh/Downloads/NUCLEO-H753ZI-FINAl-PROJECT/python-new-code/.venv/bin/python3.10
 import sys
 from jupyter_client.kernelapp import main
 if __name__ == '__main__':
-    sys.argv[0] = re.sub(r'(-script\.pyw|\.exe)?$', '', sys.argv[0])
+    sys.argv[0] = sys.argv[0].removesuffix('.exe')
     sys.exit(main())
