@@ -1,2 +1,14 @@
 .DS_Store
 .vscode
+
+# 排除編譯產生的目錄
+Debug/
+Release/
+
+# 排除特定的編譯產物
+*.elf
+*.bin
+*.hex
+*.map
+*.o
+*.d
