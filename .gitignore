@@ -1,5 +1,8 @@
-.DS_Store
-.vscode
+**/.DS_Store
+**/.vscode
+
+# python venv
+**/.venv/
 
 # 排除編譯產生的目錄
 **/Debug/
