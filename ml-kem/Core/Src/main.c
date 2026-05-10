@@ -22,72 +22,13 @@
 #include "string.h"
 #include "uart3_protocol.h"
 #include "randombytes.h"
-#include "ml_kem_lib.h"
+#include "ml_kem_uart_app.h"
 
 UART_HandleTypeDef huart3;
 
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 
-static uint8_t mlkem_pk[MLKEM_PUBLIC_KEY_SIZE];
-static uint8_t mlkem_sk[MLKEM_SECRET_KEY_SIZE];
-static uint8_t mlkem_ct[MLKEM_CIPHERTEXT_SIZE];
-static uint8_t mlkem_ss1[MLKEM_SHARED_SIZE];
-static uint8_t mlkem_ss2[MLKEM_SHARED_SIZE];
-volatile uint8_t mlkem_test_result = 0;
-
-void MLKEM_Local_Test_NoUART(void)
-{
-	uint8_t status;
-
-	mlkem_test_result = 0;
-
-	memset(mlkem_pk, 0, sizeof(mlkem_pk));
-	memset(mlkem_sk, 0, sizeof(mlkem_sk));
-	memset(mlkem_ct, 0, sizeof(mlkem_ct));
-	memset(mlkem_ss1, 0, sizeof(mlkem_ss1));
-	memset(mlkem_ss2, 0, sizeof(mlkem_ss2));
-
-	status = MLKEM_Keypair(mlkem_pk, mlkem_sk);
-
-	if (status != MLKEM_OK){
-		mlkem_test_result = 2;
-		Error_Handler();
-	}
-
-	status = MLKEM_Encapsulate(
-		mlkem_ct,
-		mlkem_ss1,
-		mlkem_pk
-	);
-
-	if (status != MLKEM_OK){
-		mlkem_test_result = 3;
-		Error_Handler();
-	}
-
-	status = MLKEM_Decapsulate(
-		mlkem_ss2,
-		mlkem_ct,
-		mlkem_sk
-	);
-
-	if (status != MLKEM_OK){
-		mlkem_test_result = 4;
-		Error_Handler();
-	}
-
-	if (memcmp(mlkem_ss1, mlkem_ss2, MLKEM_SHARED_SIZE) == 0){
-		mlkem_test_result = 1;   // PASS
-	}
-
-	else{
-		mlkem_test_result = 5;   // FAIL
-		Error_Handler();
-	}
-
-	UART3_Printf(&huart3, 100, "%d\n", mlkem_test_result);
-}
 
 int main(void)
 {
@@ -99,10 +40,14 @@ int main(void)
 
 	UART3_ClearAll(&huart3);
 
-	while(1){
-		MLKEM_Local_Test_NoUART();
+	if (MLKEM_UART_Init() != ML_KEM_UART_OK){
+		UART3_Printf(&huart3, HAL_MAX_DELAY, "KEM_INIT_ERROR\n");
+		Error_Handler();
 	}
 
+	while (1){
+		MLKEM_UART_CommandLoop(&huart3);
+	}
 }
 
 

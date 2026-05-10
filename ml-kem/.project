@@ -126,6 +126,11 @@
 			<locationURI>PARENT-3-PARENT_LOC/library/ml_kem_lib.c</locationURI>
 		</link>
 		<link>
+			<name>Core/mySrc/ml_kem_uart_app.c</name>
+			<type>1</type>
+			<locationURI>PARENT-3-PARENT_LOC/library/ml_kem_uart_app.c</locationURI>
+		</link>
+		<link>
 			<name>Core/mySrc/uart3_protocol.c</name>
 			<type>1</type>
 			<locationURI>PARENT-3-PARENT_LOC/library/uart3_protocol.c</locationURI>
