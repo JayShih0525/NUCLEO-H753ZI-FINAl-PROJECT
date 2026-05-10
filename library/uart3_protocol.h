@@ -16,6 +16,8 @@
 
 extern uint8_t uart3_rx_buffer[UART3_MAX_BUFFER_SIZE];
 
+void UART3_Init(UART_HandleTypeDef *huart, uint32_t baudrate);
+
 void UART3_ClearRxBuffer(void);
 void UART3_ClearHardwareRx(UART_HandleTypeDef *huart);
 void UART3_ClearAll(UART_HandleTypeDef *huart);
