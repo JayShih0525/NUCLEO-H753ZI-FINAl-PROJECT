@@ -23,11 +23,65 @@
 #include "uart3_protocol.h"
 #include "randombytes.h"
 #include "ml_kem_uart_app.h"
+#include "aes_gcm_uart_app.h"
 
 UART_HandleTypeDef huart3;
 
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+
+
+static uint8_t app_cmd_buffer[256];
+void APP_CommandLoop(UART_HandleTypeDef *huart)
+{
+	uint16_t cmd_len;
+	cmd_len = UART3_ReadLine(
+		huart,
+		app_cmd_buffer,
+		sizeof(app_cmd_buffer),
+		HAL_MAX_DELAY
+	);
+
+	if (cmd_len == 0) return;
+
+	// ML-KEM
+	if (strcmp((char *)app_cmd_buffer, "GET_KEM_PUBLIC_KEY") == 0){
+		MLKEM_UART_SendPublicKeyTask(huart);
+	}
+
+	else if (strcmp((char *)app_cmd_buffer, "KEM_DECAPSULATE") == 0){
+		MLKEM_UART_DecapsulateTask(huart);
+	}
+
+	else if (strcmp((char *)app_cmd_buffer, "KEM_REKEY") == 0){
+		MLKEM_UART_RekeyTask(huart);
+	}
+
+	else if (strcmp((char *)app_cmd_buffer, "KEM_ENCAPSULATE") == 0){
+		MLKEM_UART_EncapsulateTask(huart);
+	}
+
+	// AES-GCM
+	else if (strcmp((char *)app_cmd_buffer, "ENCRYPT") == 0){
+		AESGCM_UART_EncryptTask(huart);
+	}
+	else if (strcmp((char *)app_cmd_buffer, "DECRYPT") == 0){
+		AESGCM_UART_DecryptTask(huart);
+	}
+
+	// Common
+	else if (strcmp((char *)app_cmd_buffer, "CLEAR") == 0){
+		UART3_ClearRxBuffer();
+		UART3_ClearHardwareRx(huart);
+		HAL_Delay(1);
+		UART3_Printf(huart, HAL_MAX_DELAY, "READY\n");
+	}
+
+	else{
+		UART3_Printf(huart, HAL_MAX_DELAY, "UNKNOWN_CMD\n");
+	}
+
+}
 
 
 int main(void)
@@ -40,13 +94,9 @@ int main(void)
 
 	UART3_ClearAll(&huart3);
 
-//	if (MLKEM_UART_Init() != ML_KEM_UART_OK){
-//		UART3_Printf(&huart3, HAL_MAX_DELAY, "KEM_INIT_ERROR\n");
-//		Error_Handler();
-//	}
 
 	while (1){
-		MLKEM_UART_CommandLoop(&huart3);
+		APP_CommandLoop(&huart3);
 	}
 }
 
