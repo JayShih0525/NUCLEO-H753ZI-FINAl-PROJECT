@@ -89,7 +89,7 @@ int main(void)
 	HAL_Init();
 	SystemClock_Config();
 	MX_GPIO_Init();
-	UART3_Init(&huart3, 1000000);
+	UART3_Init(&huart3, 1200000);
 	Random_Init();
 
 	UART3_ClearAll(&huart3);

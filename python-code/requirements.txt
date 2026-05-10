@@ -2,3 +2,4 @@ pyserial
 cryptography
 pqcrypto
 ipykernel
+opencv-python 
