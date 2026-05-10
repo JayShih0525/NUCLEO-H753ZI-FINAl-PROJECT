@@ -63,8 +63,13 @@ class STM32AESGCM:
             raise OverflowError("local nonce counter overflow")
 
     # ============================================================
-    # STM32 AES-GCM encrypt / decrypt
+    # STM32 AES-GCM encrypt / decrypt / clear
     # ============================================================
+    def clear(self):
+        self.uart.clear_buffers()
+        self.uart.write_line("CLEAR")
+        self._wait_ready(3.0)
+        return True
 
     def encrypt(self, plaintext: bytes):
         """
