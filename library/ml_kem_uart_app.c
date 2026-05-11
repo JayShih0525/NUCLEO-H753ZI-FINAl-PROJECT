@@ -55,6 +55,7 @@ void MLKEM_UART_SendPublicKeyTask(UART_HandleTypeDef *huart)
 	UART3_SendPacket(
 		huart,
 		public_key,
+		MLKEM_PUBLIC_KEY_SIZE,
 		MLKEM_PUBLIC_KEY_SIZE
 	);
 }
@@ -88,6 +89,7 @@ void MLKEM_UART_DecapsulateTask(UART_HandleTypeDef *huart)
 	status = UART3_ReceivePacket(
 		huart,
 		kem_ciphertext,
+		MLKEM_CIPHERTEXT_SIZE,
 		&cipher_len
 	);
 
@@ -175,6 +177,7 @@ void MLKEM_UART_EncapsulateTask(UART_HandleTypeDef *huart)
 	UART3_SendPacket(
 		huart,
 		kem_ciphertext,
+		MLKEM_CIPHERTEXT_SIZE,
 		MLKEM_CIPHERTEXT_SIZE
 	);
 }

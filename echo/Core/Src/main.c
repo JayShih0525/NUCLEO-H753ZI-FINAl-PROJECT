@@ -33,12 +33,12 @@ void UART3_Echo_Packet(UART_HandleTypeDef *huart3)
 	uint32_t len;
 	uint8_t status;
 
-	status = UART3_ReceivePacket(huart3, uart3_rx_buffer, &len);
+	status = UART3_ReceivePacket(huart3, uart3_rx_buffer, UART3_MAX_BUFFER_SIZE, &len);
 
 	if (status != UART3_OK) return;
 
 	// 把收到的資料原樣送回去
-	UART3_SendPacket(huart3, uart3_rx_buffer, len);
+	UART3_SendPacket(huart3, uart3_rx_buffer, UART3_MAX_BUFFER_SIZE, len);
 }
 
 int main(void)

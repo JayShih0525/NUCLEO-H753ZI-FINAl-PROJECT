@@ -83,8 +83,12 @@ void UART3_SendStatus(UART_HandleTypeDef *huart, uint8_t status)
 	HAL_UART_Transmit(huart, &status, 1, HAL_MAX_DELAY);
 }
 
-uint8_t UART3_ReceivePacket(UART_HandleTypeDef *huart, uint8_t *buffer, uint32_t *out_len)
+uint8_t UART3_ReceivePacket(UART_HandleTypeDef *huart, uint8_t *buffer, uint32_t MAX_DATA_SIZE, uint32_t *out_len)
 {
+	if (huart == NULL || buffer == NULL || out_len == NULL || MAX_DATA_SIZE == 0){
+		return UART3_ERR_NULL_PTR;
+	}
+
 	uint8_t len_bytes[4];
 	uint32_t len;
 	uint32_t received = 0;
@@ -103,7 +107,7 @@ uint8_t UART3_ReceivePacket(UART_HandleTypeDef *huart, uint8_t *buffer, uint32_t
 	    ((uint32_t)len_bytes[3]);
 
 	// 3. 檢查長度
-	if (len > UART3_MAX_BUFFER_SIZE){
+	if (len > MAX_DATA_SIZE){
 		UART3_SendStatus(huart, UART3_ERR_LEN_TOO_BIG);
 		return UART3_ERR_LEN_TOO_BIG;
 	}
@@ -132,12 +136,12 @@ uint8_t UART3_ReceivePacket(UART_HandleTypeDef *huart, uint8_t *buffer, uint32_t
 	return UART3_OK;
 }
 
-uint8_t UART3_SendPacket(UART_HandleTypeDef *huart, uint8_t *data, uint32_t len)
+uint8_t UART3_SendPacket(UART_HandleTypeDef *huart, uint8_t *data, uint32_t MAX_DATA_SIZE, uint32_t len)
 {
 	uint8_t len_bytes[4];
 	uint32_t sent = 0;
 
-	if (len > UART3_MAX_BUFFER_SIZE){
+	if (len > MAX_DATA_SIZE){
 		UART3_SendStatus(huart, UART3_ERR_LEN_TOO_BIG);
 		return UART3_ERR_LEN_TOO_BIG;
 	}

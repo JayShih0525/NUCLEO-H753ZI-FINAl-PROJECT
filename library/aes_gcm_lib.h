@@ -4,9 +4,9 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#define AES_GCM_KEY_SIZE		32
-#define AES_GCM_NONCE_SIZE	12
-#define AES_GCM_TAG_SIZE		16
+#define AES_GCM_KEY_SIZE			32
+#define AES_GCM_NONCE_SIZE		12
+#define AES_GCM_TAG_SIZE			16
 
 #define AES_GCM_OK              			0x00
 #define AES_GCM_ERR_NULL_PTR	0xA1

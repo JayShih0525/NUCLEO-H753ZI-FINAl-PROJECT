@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <stdarg.h>
 
-#define UART3_MAX_BUFFER_SIZE   65535
+#define UART3_MAX_BUFFER_SIZE   4096
 #define UART3_CHUNK_SIZE    		4096
 
 #define UART3_OK                			0x00
@@ -13,6 +13,7 @@
 #define UART3_ERR_RX_LEN        		0xE2
 #define UART3_ERR_RX_DATA       	0xE3
 #define UART3_ERR_TX_DATA       	0xE4
+#define UART3_ERR_NULL_PTR		0xE5
 
 extern uint8_t uart3_rx_buffer[UART3_MAX_BUFFER_SIZE];
 
@@ -30,12 +31,14 @@ void UART3_SendStatus(
 uint8_t UART3_ReceivePacket(
 	UART_HandleTypeDef *huart,
 	uint8_t *buffer,
+	uint32_t MAX_DATA_SIZE,
 	uint32_t *out_len
 );
 
 uint8_t UART3_SendPacket(
 	UART_HandleTypeDef *huart,
 	uint8_t *data,
+	uint32_t MAX_DATA_SIZE,
 	uint32_t len
 );
 

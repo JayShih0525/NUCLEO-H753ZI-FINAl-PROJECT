@@ -3,7 +3,7 @@
 #include "uart3_protocol.h"
 #include <string.h>
 
-static uint8_t key[32] = {
+static uint8_t key[AES_GCM_KEY_SIZE] = {
 	0x00, 0x01, 0x02, 0x03,
 	0x04, 0x05, 0x06, 0x07,
 	0x08, 0x09, 0x0A, 0x0B,
@@ -14,7 +14,7 @@ static uint8_t key[32] = {
 	0x1C, 0x1D, 0x1E, 0x1F
 };
 
-static uint8_t nonce[12] = {
+static uint8_t nonce[AES_GCM_NONCE_SIZE] = {
 	'S', 'T', 'M', '3',
 	0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x01
@@ -25,7 +25,7 @@ static uint8_t cmd_buffer[256];
 static uint8_t plaintext[AES_GCM_APP_MAX_SIZE];
 static uint8_t ciphertext[AES_GCM_APP_MAX_SIZE];
 static uint8_t decrypted[AES_GCM_APP_MAX_SIZE];
-static uint8_t tag[16];
+static uint8_t tag[AES_GCM_TAG_SIZE];
 
 static void AESGCM_IncrementNonce(void)
 {
@@ -47,7 +47,7 @@ void AESGCM_UART_EncryptTask(UART_HandleTypeDef *huart)
 
 	UART3_Printf(huart, HAL_MAX_DELAY, "READY\n");
 
-	status = UART3_ReceivePacket(huart, plaintext, &len);
+	status = UART3_ReceivePacket(huart, plaintext, AES_GCM_APP_MAX_SIZE, &len);
 
 	if (status != UART3_OK){
 		UART3_Printf(huart, HAL_MAX_DELAY, "RX_ERROR\n");
@@ -68,9 +68,9 @@ void AESGCM_UART_EncryptTask(UART_HandleTypeDef *huart)
 		return;
 	}
 
-	UART3_SendPacket(huart, nonce, 12);
-	UART3_SendPacket(huart, ciphertext, len);
-	UART3_SendPacket(huart, tag, 16);
+	UART3_SendPacket(huart, nonce, AES_GCM_NONCE_SIZE, 12);
+	UART3_SendPacket(huart, ciphertext, AES_GCM_APP_MAX_SIZE, len);
+	UART3_SendPacket(huart, tag, AES_GCM_TAG_SIZE, 16);
 
 	AESGCM_IncrementNonce();
 }
@@ -85,21 +85,21 @@ void AESGCM_UART_DecryptTask(UART_HandleTypeDef *huart)
 
 	UART3_Printf(huart, HAL_MAX_DELAY, "READY\n");
 
-	status = UART3_ReceivePacket(huart, received_nonce, &nonce_len);
+	status = UART3_ReceivePacket(huart, received_nonce, AES_GCM_NONCE_SIZE, &nonce_len);
 	if (status != UART3_OK || nonce_len != 12){
 		UART3_Printf(huart, HAL_MAX_DELAY, "NONCE_ERROR\n");
 		UART3_ClearAll(huart);
 		return;
 	}
 
-	status = UART3_ReceivePacket(huart, ciphertext, &cipher_len);
+	status = UART3_ReceivePacket(huart, ciphertext, AES_GCM_APP_MAX_SIZE, &cipher_len);
 	if (status != UART3_OK){
 		UART3_Printf(huart, HAL_MAX_DELAY, "CIPHER_ERROR\n");
 		UART3_ClearAll(huart);
 		return;
 	}
 
-	status = UART3_ReceivePacket(huart, tag, &tag_len);
+	status = UART3_ReceivePacket(huart, tag, AES_GCM_TAG_SIZE, &tag_len);
 	if (status != UART3_OK || tag_len != 16){
 		UART3_Printf(huart, HAL_MAX_DELAY, "TAG_ERROR\n");
 		UART3_ClearAll(huart);
@@ -119,7 +119,7 @@ void AESGCM_UART_DecryptTask(UART_HandleTypeDef *huart)
 		return;
 	}
 
-	UART3_SendPacket(huart, decrypted, cipher_len);
+	UART3_SendPacket(huart, decrypted, AES_GCM_APP_MAX_SIZE, cipher_len);
 }
 
 void AESGCM_UART_CommandLoop(UART_HandleTypeDef *huart)
