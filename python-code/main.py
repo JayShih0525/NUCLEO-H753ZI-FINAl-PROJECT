@@ -42,6 +42,8 @@ STATUS_HEIGHT = 800
 # 每幾秒送一張 frame 給 STM32 加密
 ENCRYPT_GAP = 0.0
 
+# 黑白畫面
+GRAYSCALE = True
 
 # ============================================================
 # Helper functions
@@ -670,7 +672,7 @@ def live_three_windows_threaded(aes: STM32AESGCM, url: str):
         width=DATA_WIDTH,
         height=DATA_HEIGHT,
         jpeg_quality=JPEG_QUALITY,
-        grayscale=False,
+        grayscale=GRAYSCALE,
     )
 
     state = SharedFrameState()
