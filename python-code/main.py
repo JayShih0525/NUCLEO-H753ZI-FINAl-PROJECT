@@ -8,7 +8,6 @@ from library.ml_kem_app import STM32MLKEM
 from library.aes_gcm_app import STM32AESGCM
 from library.url_screen_capture import URLScreenCapture
 
-
 # ============================================================
 # Config
 # ============================================================
@@ -27,7 +26,7 @@ DATA_WIDTH = 640
 DATA_HEIGHT = 480
 
 # 初始 JPEG quality，可以在執行時用 + / - 改
-JPEG_QUALITY = 80
+JPEG_QUALITY = 50
 JPEG_QUALITY_MIN = 0
 JPEG_QUALITY_MAX = 100
 JPEG_QUALITY_STEP = 5
@@ -210,11 +209,11 @@ def make_encrypted_status_image(state):
 
     draw_panel(img, 40, 115, 560, 255, "Runtime Status")
 
-    put_value(img, "Frame", frame_count, 70, 175, 210)
-    put_value(img, "OK", ok_count, 70, 215, 210)
+    put_value(img, "Frame", f"{frame_count:,}", 70, 175, 210)
+    put_value(img, "OK", f"{ok_count:,}", 70, 215, 210)
 
     put_value(img, "Status", last_status, 330, 175, 440)
-    put_value(img, "ERR", err_count, 330, 215, 440)
+    put_value(img, "ERR", f"{err_count:,}", 330, 215, 440)
 
     # ========================================================
     # Panel 2: Image Input Config
@@ -234,10 +233,10 @@ def make_encrypted_status_image(state):
 
     draw_panel(img, 40, 285, 1160, 460, "AES-GCM Payload Size")
 
-    put_value(img, "Plaintext bytes", plain_len, 70, 350, 280)
-    put_value(img, "Ciphertext bytes", cipher_len, 70, 395, 280)
+    put_value(img, "Plaintext bytes", f"{plain_len:,}", 70, 350, 280)
+    put_value(img, "Ciphertext bytes", f"{cipher_len:,}", 70, 395, 280)
 
-    put_value(img, "Max payload bytes", AES_GCM_APP_MAX_SIZE, 500, 350, 720)
+    put_value(img, "Max payload bytes", f"{AES_GCM_APP_MAX_SIZE:,}", 500, 350, 720)
     put_value(img, "Used", f"{used_percent:.2f}%", 500, 395, 720)
 
     put_value(img, "Elapsed", f"{elapsed:.3f}s", 850, 350, 980)
