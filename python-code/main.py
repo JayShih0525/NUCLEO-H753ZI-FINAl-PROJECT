@@ -43,7 +43,7 @@ STATUS_HEIGHT = 800
 ENCRYPT_GAP = 0.0
 
 # 黑白畫面
-GRAYSCALE = True
+GRAYSCALE = False
 
 # ============================================================
 # Helper functions
