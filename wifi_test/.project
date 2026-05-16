@@ -29,4 +29,42 @@
 		<nature>org.eclipse.cdt.managedbuilder.core.managedBuildNature</nature>
 		<nature>org.eclipse.cdt.managedbuilder.core.ScannerConfigNature</nature>
 	</natures>
+	<linkedResources>
+		<link>
+			<name>Core/mySrc/aes_gcm_lib.c</name>
+			<type>1</type>
+			<locationURI>copy_PARENT/library/aes_gcm_lib.c</locationURI>
+		</link>
+		<link>
+			<name>Core/mySrc/aes_gcm_uart_app.c</name>
+			<type>1</type>
+			<locationURI>copy_PARENT/library/aes_gcm_uart_app.c</locationURI>
+		</link>
+		<link>
+			<name>Core/mySrc/ml_kem_lib.c</name>
+			<type>1</type>
+			<locationURI>copy_PARENT/library/ml_kem_lib.c</locationURI>
+		</link>
+		<link>
+			<name>Core/mySrc/ml_kem_uart_app.c</name>
+			<type>1</type>
+			<locationURI>copy_PARENT/library/ml_kem_uart_app.c</locationURI>
+		</link>
+		<link>
+			<name>Core/mySrc/uart3_protocol.c</name>
+			<type>1</type>
+			<locationURI>copy_PARENT/library/uart3_protocol.c</locationURI>
+		</link>
+		<link>
+			<name>Core/mySrc/wifi_driver.c</name>
+			<type>1</type>
+			<locationURI>PARENT-3-PARENT_LOC/library/wifi_driver.c</locationURI>
+		</link>
+	</linkedResources>
+	<variableList>
+		<variable>
+			<name>copy_PARENT</name>
+			<value>$%7BPARENT-1-PROJECT_LOC%7D</value>
+		</variable>
+	</variableList>
 </projectDescription>
