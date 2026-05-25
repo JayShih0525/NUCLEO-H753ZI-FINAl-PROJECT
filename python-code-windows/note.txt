@@ -1,0 +1,24 @@
+# create python venv (Python 3.10)
+py -3.10 -m venv .venv
+
+# activate venv (PowerShell)
+.\.venv\Scripts\Activate.ps1
+
+# if execution policy blocks activation (run once)
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+
+# check venv python version
+python --version
+type .venv\pyvenv.cfg
+
+# update pip / setuptools / wheel
+python -m pip install --upgrade pip setuptools wheel
+
+# install python libraries
+pip install -r requirements.txt
+
+# install jupyter kernel
+python -m ipykernel install --user --name stm32-pqc --display-name "Python (STM32)"
+
+# verify kernel installation
+jupyter kernelspec list

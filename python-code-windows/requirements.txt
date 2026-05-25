@@ -1,0 +1,9 @@
+pyserial
+cryptography
+pqcrypto
+ipykernel
+opencv-python 
+flask 
+mss 
+opencv-python 
+numpy
