@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "api.h"
+#include "dilithium_api.h"
 
 UART_HandleTypeDef huart3;
 
