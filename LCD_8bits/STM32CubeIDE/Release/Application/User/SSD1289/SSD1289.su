@@ -1,6 +1,0 @@
-../Application/User/SSD1289/SSD1289.c:27:6:SSD1289_init	16	static
-../Application/User/SSD1289/SSD1289.c:96:6:SSD1289_set_cursor	16	static
-../Application/User/SSD1289/SSD1289.c:107:6:SSD1289_pixel	16	static
-../Application/User/SSD1289/SSD1289.c:115:6:SSD1289_set_window	24	static
-../Application/User/SSD1289/SSD1289.c:129:6:SSD1289_transmit_to_ram	0	static
-../Application/User/SSD1289/SSD1289.c:135:6:SSD1289_clear	32	static
