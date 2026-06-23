@@ -2,10 +2,10 @@ CC ?= /usr/bin/cc
 CFLAGS += -Wall -Wextra -Wpedantic -Wmissing-prototypes -Wredundant-decls \
   -Wshadow -Wvla -Wpointer-arith -O3 -fomit-frame-pointer
 NISTFLAGS += -Wno-unused-result -O3 -fomit-frame-pointer
-SOURCES = sign.c packing.c polyvec.c poly.c ntt.c reduce.c rounding.c
-HEADERS = config.h params.h api.h sign.h packing.h polyvec.h poly.h ntt.h \
-  reduce.h rounding.h symmetric.h randombytes.h
-KECCAK_SOURCES = $(SOURCES) fips202.c symmetric-shake.c
+SOURCES = dilithium_sign.c dilithium_packing.c dilithium_polyvec.c dilithium_poly.c dilithium_ntt.c dilithium_reduce.c dilithium_rounding.c
+HEADERS = dilithium_config.h dilithium_params.h dilithium_api.h dilithium_sign.h dilithium_packing.h dilithium_polyvec.h dilithium_poly.h dilithium_ntt.h \
+  dilithium_reduce.h dilithium_rounding.h dilithium_symmetric.h randombytes.h
+KECCAK_SOURCES = $(SOURCES) fips202.c dilithium_symmetric-shake.c
 KECCAK_HEADERS = $(HEADERS) fips202.h
 
 .PHONY: all speed shared clean
