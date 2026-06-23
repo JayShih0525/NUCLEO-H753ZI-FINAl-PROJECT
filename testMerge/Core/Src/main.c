@@ -2,6 +2,8 @@
 #include "string.h"
 #include "uart3_protocol.h"
 #include "randombytes.h"
+#include "ml_kem_uart_app.h"
+#include "aes_gcm_uart_app.h"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -263,8 +265,41 @@ void APP_CommandLoop(UART_HandleTypeDef *huart)
         UART3_Printf(huart, HAL_MAX_DELAY, "READY\n");
     }
 
+    // ML-KEM
+    else if (strcmp((char *)app_cmd_buffer, "GET_KEM_PUBLIC_KEY") == 0){
+	    MLKEM_UART_SendPublicKeyTask(huart);
+    }
+
+    else if (strcmp((char *)app_cmd_buffer, "KEM_DECAPSULATE") == 0){
+	    MLKEM_UART_DecapsulateTask(huart);
+    }
+
+    else if (strcmp((char *)app_cmd_buffer, "KEM_REKEY") == 0){
+	    MLKEM_UART_RekeyTask(huart);
+    }
+
+    else if (strcmp((char *)app_cmd_buffer, "KEM_ENCAPSULATE") == 0){
+	    MLKEM_UART_EncapsulateTask(huart);
+    }
+
+    // AES-GCM
+    else if (strcmp((char *)app_cmd_buffer, "ENCRYPT") == 0){
+	    AESGCM_UART_EncryptTask(huart);
+    }
+    else if (strcmp((char *)app_cmd_buffer, "DECRYPT") == 0){
+	    AESGCM_UART_DecryptTask(huart);
+    }
+
+    // Common
+    else if (strcmp((char *)app_cmd_buffer, "CLEAR") == 0){
+	    UART3_ClearRxBuffer();
+	    UART3_ClearHardwareRx(huart);
+	    HAL_Delay(1);
+	    UART3_Printf(huart, HAL_MAX_DELAY, "READY\n");
+    }
+
     else {
-        UART3_Printf(huart, HAL_MAX_DELAY, "UNKNOWN_CMD\n");
+	    UART3_Printf(huart, HAL_MAX_DELAY, "UNKNOWN_CMD\n");
     }
 }
 
