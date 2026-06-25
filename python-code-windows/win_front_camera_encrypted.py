@@ -2,13 +2,14 @@ import argparse
 import importlib
 import time
 
+import cv2
+import numpy as np
 import serial
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from pqcrypto.kem.ml_kem_768 import encrypt
 
 
 UART3_OK = 0x00
-UART3_ERR_LEN_TOO_BIG = 0xE1
 
 MLKEM768_PUBLICKEYBYTES = 1184
 MLKEM768_CIPHERTEXTBYTES = 1088
@@ -87,14 +88,11 @@ class UART3Protocol:
 
         return data
 
-    def write_bytes(self, data: bytes):
+    def write_line(self, text: str):
         if self.ser is None or not self.ser.is_open:
             raise RuntimeError("Serial port is not open")
-        self.ser.write(data)
+        self.ser.write((text + "\n").encode("utf-8"))
         self.ser.flush()
-
-    def write_line(self, text: str):
-        self.write_bytes((text + "\n").encode("utf-8"))
 
     def read_line(self, timeout=5.0):
         if self.ser is None or not self.ser.is_open:
@@ -115,10 +113,8 @@ class UART3Protocol:
         return data.decode("utf-8", errors="replace")
 
     def send_packet(self, data: bytes):
-        if self.ser is None or not self.ser.is_open:
-            raise RuntimeError("Serial port is not open")
         if len(data) > self.max_buffer_size:
-            raise ValueError(f"Data too large: {len(data)} bytes")
+            raise ValueError(f"Data too large: {len(data)} > {self.max_buffer_size}")
 
         self.ser.write(len(data).to_bytes(4, byteorder="big"))
         self.ser.write(data)
@@ -131,9 +127,6 @@ class UART3Protocol:
             raise RuntimeError(f"STM32 packet receive error: 0x{status[0]:02X}")
 
     def receive_packet(self):
-        if self.ser is None or not self.ser.is_open:
-            raise RuntimeError("Serial port is not open")
-
         len_bytes = self.read_exact(4, timeout=3.0)
         if len(len_bytes) != 4:
             raise TimeoutError(f"Expected 4 length bytes, got {len(len_bytes)}")
@@ -157,20 +150,15 @@ class STM32MLKEM:
         line = self.uart.read_line(timeout=timeout)
         if line != expected:
             raise RuntimeError(f"Expected {expected!r}, got {line!r}")
-        return line
 
-    def get_public_key(self):
+    def handshake(self):
         self.uart.write_line("GET_KEM_PUBLIC_KEY")
         self.wait_line("READY", timeout=10.0)
         public_key = self.uart.receive_packet()
         if len(public_key) != MLKEM768_PUBLICKEYBYTES:
             raise RuntimeError(f"ML-KEM public key length wrong: {len(public_key)}")
-        return public_key
 
-    def handshake(self):
-        public_key = self.get_public_key()
         kem_ciphertext, shared_secret = encrypt(public_key)
-
         if len(kem_ciphertext) != MLKEM768_CIPHERTEXTBYTES:
             raise RuntimeError(f"ML-KEM ciphertext length wrong: {len(kem_ciphertext)}")
         if len(shared_secret) != MLKEM768_SHAREDKEYBYTES:
@@ -197,18 +185,11 @@ class STM32AESGCM:
             raise ValueError("AES-256-GCM key must be 32 bytes")
         self.uart = uart
         self.local_aesgcm = AESGCM(bytes(key))
-        self.local_nonce_prefix = b"PYTH"
-        self.local_nonce_counter = 1
 
-    def wait_ready(self, timeout=3.0):
-        ready = self.uart.read_line(timeout=timeout)
+    def wait_ready(self):
+        ready = self.uart.read_line(timeout=3.0)
         if ready != "READY":
             raise RuntimeError(f"Expected READY, got {ready!r}")
-
-    def next_local_nonce(self):
-        nonce = self.local_nonce_prefix + self.local_nonce_counter.to_bytes(8, "big")
-        self.local_nonce_counter += 1
-        return nonce
 
     def stm32_encrypt(self, plaintext: bytes):
         self.uart.write_line("ENCRYPT")
@@ -224,60 +205,21 @@ class STM32AESGCM:
         if len(tag) != 16:
             raise RuntimeError(f"Tag length wrong: {len(tag)}")
 
-        return {"nonce": nonce, "ciphertext": ciphertext, "tag": tag}
-
-    def stm32_decrypt(self, nonce: bytes, ciphertext: bytes, tag: bytes):
-        self.uart.write_line("DECRYPT")
-        self.wait_ready()
-        self.uart.send_packet(nonce)
-        self.uart.send_packet(ciphertext)
-        self.uart.send_packet(tag)
-        return self.uart.receive_packet()
-
-    def local_encrypt(self, plaintext: bytes):
-        nonce = self.next_local_nonce()
-        encrypted = self.local_aesgcm.encrypt(nonce, plaintext, None)
-        return {
-            "nonce": nonce,
-            "ciphertext": encrypted[:-16],
-            "tag": encrypted[-16:],
-        }
+        return nonce, ciphertext, tag
 
     def local_decrypt(self, nonce: bytes, ciphertext: bytes, tag: bytes):
         return self.local_aesgcm.decrypt(nonce, ciphertext + tag, None)
-
-    def stm32_encrypt_local_decrypt_test(self, plaintext: bytes):
-        enc = self.stm32_encrypt(plaintext)
-        decrypted = self.local_decrypt(enc["nonce"], enc["ciphertext"], enc["tag"])
-        return {"ok": decrypted == plaintext, **enc}
-
-    def local_encrypt_stm32_decrypt_test(self, plaintext: bytes):
-        enc = self.local_encrypt(plaintext)
-        decrypted = self.stm32_decrypt(enc["nonce"], enc["ciphertext"], enc["tag"])
-        return {"ok": decrypted == plaintext, **enc, "decrypted": decrypted}
 
 
 class STM32Dilithium:
     def __init__(self, uart: UART3Protocol):
         self.uart = uart
-        self.public_key = None
-
-    def rekey(self):
-        self.uart.write_line("DILITHIUM_REKEY")
-        result = self.uart.read_line(timeout=30.0)
-        if result != "DILITHIUM_REKEY_OK":
-            raise RuntimeError(f"DILITHIUM_REKEY failed: {result!r}")
-        self.public_key = None
-        return True
 
     def get_public_key(self):
         self.uart.write_line("GET_DILITHIUM_PUBLIC_KEY")
         public_key = self.uart.receive_packet()
         if len(public_key) != DILITHIUM2_PUBLICKEYBYTES:
-            raise RuntimeError(
-                f"Dilithium public key length wrong: {len(public_key)}"
-            )
-        self.public_key = public_key
+            raise RuntimeError(f"Dilithium public key length wrong: {len(public_key)}")
         return public_key
 
     def sign(self, message: bytes):
@@ -292,81 +234,186 @@ class STM32Dilithium:
         return verify_dilithium_signature(public_key, message, signature)
 
 
-def wait_optional_boot_line(uart: UART3Protocol):
-    line = uart.read_line(timeout=1.0)
-    if line:
-        print(f"boot: {line}")
+def open_camera(index: int, width: int, height: int, fps: int):
+    cap = cv2.VideoCapture(index, cv2.CAP_DSHOW)
+    if not cap.isOpened():
+        raise RuntimeError(
+            "Cannot open camera. Try --camera 1 or check Windows Camera Privacy Settings."
+        )
+
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+    cap.set(cv2.CAP_PROP_FPS, fps)
+    return cap
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Run merged ML-KEM/AES/Dilithium UART flow.")
-    parser.add_argument("--port", default="COM6", help="Serial port, for example COM6.")
-    parser.add_argument("--baud", type=int, default=4000000, help="UART baud rate.")
-    parser.add_argument("--size", type=int, default=1024, help="AES test plaintext size.")
-    parser.add_argument(
-        "--skip-clear",
-        action="store_true",
-        help="Do not send CLEAR after opening the serial port.",
+def frame_to_jpg_bytes(frame, quality: int):
+    ok, jpg = cv2.imencode(
+        ".jpg",
+        frame,
+        [int(cv2.IMWRITE_JPEG_QUALITY), int(quality)],
     )
-    args = parser.parse_args()
+    if not ok:
+        raise RuntimeError("Failed to encode frame to JPEG")
+    return jpg.tobytes()
 
-    if args.size < 1 or args.size > 65536:
-        raise ValueError("--size must be between 1 and 65536 bytes")
 
+def jpg_bytes_to_frame(jpg_bytes: bytes):
+    arr = np.frombuffer(jpg_bytes, dtype=np.uint8)
+    frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    if frame is None:
+        raise RuntimeError("Failed to decode decrypted JPEG")
+    return frame
+
+
+def make_status_image(stats):
+    img = np.zeros((360, 680, 3), dtype=np.uint8)
+    rows = [
+        "Encrypted camera flow",
+        f"frames ok      : {stats['ok']}",
+        f"errors         : {stats['err']}",
+        f"jpeg bytes     : {stats['plain_len']}",
+        f"cipher bytes   : {stats['cipher_len']}",
+        f"encrypt ms     : {stats['encrypt_ms']:.1f}",
+        f"status         : {stats['status']}",
+        "",
+        "Press q to quit",
+    ]
+
+    y = 36
+    for i, text in enumerate(rows):
+        scale = 0.75 if i == 0 else 0.55
+        color = (120, 220, 160) if i == 0 else (230, 230, 230)
+        cv2.putText(img, text, (24, y), cv2.FONT_HERSHEY_SIMPLEX, scale, color, 1, cv2.LINE_AA)
+        y += 36
+
+    return img
+
+
+def clear_stm32(uart: UART3Protocol):
+    uart.write_line("CLEAR")
+    result = uart.read_line(timeout=3.0)
+    if result != "READY":
+        raise RuntimeError(f"CLEAR failed: {result!r}")
+
+
+def run_camera_encryption(args):
     uart = UART3Protocol(
         port=args.port,
         baud=args.baud,
-        max_buffer_size=65536,
+        max_buffer_size=args.max_size,
         timeout=0.01,
     )
+    cap = None
+
+    stats = {
+        "ok": 0,
+        "err": 0,
+        "plain_len": 0,
+        "cipher_len": 0,
+        "encrypt_ms": 0.0,
+        "status": "starting",
+    }
 
     try:
-        print(f"opening {args.port} @ {args.baud}")
+        print(f"opening UART {args.port} @ {args.baud}")
         uart.open()
-        wait_optional_boot_line(uart)
-
-        if not args.skip_clear:
-            uart.write_line("CLEAR")
-            clear_result = uart.read_line(timeout=3.0)
-            if clear_result != "READY":
-                raise RuntimeError(f"CLEAR failed: {clear_result!r}")
-            print("clear: READY")
+        clear_stm32(uart)
 
         print("ml-kem: handshake")
-        kem = STM32MLKEM(uart)
-        kem_result = kem.handshake()
-        aes_key = kem_result["aes_key"]
+        kem_result = STM32MLKEM(uart).handshake()
+        aes = STM32AESGCM(uart, kem_result["aes_key"])
         print(f"ml-kem: pk={len(kem_result['public_key'])} ct={len(kem_result['kem_ciphertext'])}")
 
-        print("aes-gcm: stm32 encrypt -> python decrypt")
-        aes = STM32AESGCM(uart, aes_key)
-        plaintext = bytes((i % 251 for i in range(args.size)))
-        stm32_to_python = aes.stm32_encrypt_local_decrypt_test(plaintext)
-        print(f"aes-gcm: stm32->python ok={stm32_to_python['ok']}")
-
-        print("aes-gcm: python encrypt -> stm32 decrypt")
-        python_to_stm32 = aes.local_encrypt_stm32_decrypt_test(plaintext)
-        print(f"aes-gcm: python->stm32 ok={python_to_stm32['ok']}")
-
-        if not stm32_to_python["ok"] or not python_to_stm32["ok"]:
-            raise RuntimeError("AES-GCM round trip failed")
-
-        print("dilithium: get public key")
+        print("dilithium: session sign on stm32 + verify on laptop")
         dil = STM32Dilithium(uart)
-        public_key = dil.get_public_key()
-        print(f"dilithium: pk={len(public_key)}")
+        dil_pk = dil.get_public_key()
+        session_msg = b"windows camera encrypted session"
+        session_sig = dil.sign(session_msg)
+        verifier = dil.verify_locally(dil_pk, session_sig, session_msg)
+        print(f"dilithium: pk={len(dil_pk)} sig={len(session_sig)} laptop_verify=OK verifier={verifier}")
 
-        print("dilithium: sign on stm32 + verify on laptop")
-        message = b"hello merged pqc flow"
-        signature = dil.sign(message)
-        verifier = dil.verify_locally(public_key, signature, message)
-        print(f"dilithium: sig={len(signature)} laptop_verify=OK verifier={verifier}")
+        print(f"opening camera index {args.camera}")
+        cap = open_camera(args.camera, args.width, args.height, args.fps)
+        frame_interval = 1.0 / max(args.fps, 1)
+        stats["status"] = "running"
 
-        print("merged flow: PASS")
+        while True:
+            loop_start = time.perf_counter()
+            ok, frame = cap.read()
+            if not ok or frame is None:
+                stats["err"] += 1
+                stats["status"] = "camera read failed"
+                time.sleep(0.05)
+                continue
+
+            frame = cv2.resize(frame, (args.width, args.height))
+            jpg_bytes = frame_to_jpg_bytes(frame, args.quality)
+
+            if len(jpg_bytes) > args.max_size:
+                stats["err"] += 1
+                stats["status"] = f"jpeg too large: {len(jpg_bytes)}"
+                cv2.imshow("1. Original Camera", frame)
+                cv2.imshow("2. Encrypted Status", make_status_image(stats))
+                if cv2.waitKey(1) & 0xFF == ord("q"):
+                    break
+                continue
+
+            try:
+                enc_start = time.perf_counter()
+                nonce, ciphertext, tag = aes.stm32_encrypt(jpg_bytes)
+                decrypted_jpg = aes.local_decrypt(nonce, ciphertext, tag)
+                decrypted_frame = jpg_bytes_to_frame(decrypted_jpg)
+                stats["encrypt_ms"] = (time.perf_counter() - enc_start) * 1000.0
+
+                if decrypted_jpg != jpg_bytes:
+                    raise RuntimeError("decrypted JPEG bytes do not match plaintext")
+
+                stats["ok"] += 1
+                stats["plain_len"] = len(jpg_bytes)
+                stats["cipher_len"] = len(ciphertext)
+                stats["status"] = "encrypted -> decrypted OK"
+
+                cv2.imshow("1. Original Camera", frame)
+                cv2.imshow("2. Encrypted Status", make_status_image(stats))
+                cv2.imshow("3. Decrypted Camera", decrypted_frame)
+
+            except Exception as exc:
+                stats["err"] += 1
+                stats["status"] = str(exc)
+                cv2.imshow("1. Original Camera", frame)
+                cv2.imshow("2. Encrypted Status", make_status_image(stats))
+
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
+
+            elapsed = time.perf_counter() - loop_start
+            sleep_time = frame_interval - elapsed
+            if sleep_time > 0:
+                time.sleep(sleep_time)
 
     finally:
+        if cap is not None:
+            cap.release()
         uart.close()
-        time.sleep(0.1)
+        cv2.destroyAllWindows()
+        print("stopped")
+        print(f"frames ok={stats['ok']} errors={stats['err']} last={stats['status']}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Encrypt Windows camera frames with STM32 AES-GCM.")
+    parser.add_argument("--port", default="COM3")
+    parser.add_argument("--baud", type=int, default=4000000)
+    parser.add_argument("--camera", type=int, default=0)
+    parser.add_argument("--width", type=int, default=320)
+    parser.add_argument("--height", type=int, default=240)
+    parser.add_argument("--fps", type=int, default=5)
+    parser.add_argument("--quality", type=int, default=50)
+    parser.add_argument("--max-size", type=int, default=65536)
+    args = parser.parse_args()
+
+    run_camera_encryption(args)
 
 
 if __name__ == "__main__":
