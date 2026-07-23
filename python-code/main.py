@@ -13,7 +13,7 @@ from library.url_screen_capture import URLScreenCapture
 # ============================================================
 
 # APP: Simple IP Cam
-URL = "http://172.20.10.2:8080/stream.mjpg"
+# URL = "http://172.20.10.2:8080/stream.mjpg"
 URL = "http://127.0.0.1:8080/stream.mjpg"
 
 PORT = "/dev/cu.usbmodem1103"

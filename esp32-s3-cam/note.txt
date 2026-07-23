@@ -1,0 +1,13 @@
+python3 -m venv .venv
+
+which python3
+
+pip install -r requirement.txt
+
+
+
+Arduino IDE:
+
+ESP32S3 Dev Module
+USB CDC On Boot: Enabled
+PSRAM: Enabled
