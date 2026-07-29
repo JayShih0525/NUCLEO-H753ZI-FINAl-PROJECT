@@ -23,8 +23,12 @@ static uint8_t dilithium_sig[pqcrystals_dilithium2_ref_BYTES];
 
 static uint8_t msg_buffer[1024];
 static uint8_t sig_buffer[pqcrystals_dilithium2_ref_BYTES];
+static uint8_t laptop_dilithium_pk[pqcrystals_dilithium2_ref_PUBLICKEYBYTES];
+static uint8_t auth_challenge[32];
 
 static uint8_t dilithium_key_ready = 0;
+static uint8_t laptop_dilithium_key_ready = 0;
+static uint8_t auth_challenge_ready = 0;
 
 static uint8_t APP_InitCrypto(UART_HandleTypeDef *huart)
 {
@@ -250,6 +254,97 @@ static void DILITHIUM_VerifyTask(UART_HandleTypeDef *huart)
     }
 }
 
+static void DILITHIUM_SetLaptopPublicKey(UART_HandleTypeDef *huart)
+{
+    uint32_t pk_len = 0;
+    uint8_t status;
+
+    UART3_Printf(huart, HAL_MAX_DELAY, "READY\n");
+
+    status = UART3_ReceivePacket(
+        huart,
+        laptop_dilithium_pk,
+        sizeof(laptop_dilithium_pk),
+        &pk_len
+    );
+
+    if (status != UART3_OK) {
+        laptop_dilithium_key_ready = 0;
+        UART3_Printf(huart, HAL_MAX_DELAY, "LAPTOP_PK_RX_FAIL\n");
+        return;
+    }
+
+    if (pk_len != sizeof(laptop_dilithium_pk)) {
+        laptop_dilithium_key_ready = 0;
+        UART3_Printf(huart, HAL_MAX_DELAY, "LAPTOP_PK_LEN_FAIL\n");
+        return;
+    }
+
+    laptop_dilithium_key_ready = 1;
+    UART3_Printf(huart, HAL_MAX_DELAY, "LAPTOP_PK_OK\n");
+}
+
+static void DILITHIUM_SendAuthChallenge(UART_HandleTypeDef *huart)
+{
+    randombytes(auth_challenge, sizeof(auth_challenge));
+    auth_challenge_ready = 1;
+
+    UART3_SendPacket(
+        huart,
+        auth_challenge,
+        sizeof(auth_challenge),
+        sizeof(auth_challenge)
+    );
+}
+
+static void DILITHIUM_VerifyLaptopAuth(UART_HandleTypeDef *huart)
+{
+    uint32_t sig_len = 0;
+    uint8_t status;
+    int ret;
+
+    if (!laptop_dilithium_key_ready) {
+        UART3_Printf(huart, HAL_MAX_DELAY, "NO_LAPTOP_KEY\n");
+        return;
+    }
+
+    if (!auth_challenge_ready) {
+        UART3_Printf(huart, HAL_MAX_DELAY, "NO_AUTH_CHALLENGE\n");
+        return;
+    }
+
+    UART3_Printf(huart, HAL_MAX_DELAY, "READY\n");
+
+    status = UART3_ReceivePacket(
+        huart,
+        sig_buffer,
+        sizeof(sig_buffer),
+        &sig_len
+    );
+
+    if (status != UART3_OK) {
+        UART3_Printf(huart, HAL_MAX_DELAY, "LAPTOP_SIG_RX_FAIL\n");
+        return;
+    }
+
+    ret = pqcrystals_dilithium2_ref_verify(
+        sig_buffer,
+        sig_len,
+        auth_challenge,
+        sizeof(auth_challenge),
+        NULL,
+        0,
+        laptop_dilithium_pk
+    );
+
+    if (ret == 0) {
+        auth_challenge_ready = 0;
+        UART3_Printf(huart, HAL_MAX_DELAY, "LAPTOP_AUTH_OK\n");
+    } else {
+        UART3_Printf(huart, HAL_MAX_DELAY, "LAPTOP_AUTH_FAIL\n");
+    }
+}
+
 void APP_CommandLoop(UART_HandleTypeDef *huart)
 {
     uint16_t cmd_len;
@@ -281,6 +376,18 @@ void APP_CommandLoop(UART_HandleTypeDef *huart)
 
     else if (strcmp((char *)app_cmd_buffer, "DILITHIUM_VERIFY") == 0) {
         DILITHIUM_VerifyTask(huart);
+    }
+
+    else if (strcmp((char *)app_cmd_buffer, "SET_LAPTOP_DILITHIUM_PUBLIC_KEY") == 0) {
+        DILITHIUM_SetLaptopPublicKey(huart);
+    }
+
+    else if (strcmp((char *)app_cmd_buffer, "GET_AUTH_CHALLENGE") == 0) {
+        DILITHIUM_SendAuthChallenge(huart);
+    }
+
+    else if (strcmp((char *)app_cmd_buffer, "VERIFY_LAPTOP_AUTH") == 0) {
+        DILITHIUM_VerifyLaptopAuth(huart);
     }
 
     // ML-KEM

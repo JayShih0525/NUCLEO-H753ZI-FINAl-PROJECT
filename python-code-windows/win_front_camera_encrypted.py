@@ -53,6 +53,42 @@ def verify_dilithium_signature(public_key: bytes, message: bytes, signature: byt
     raise RuntimeError("No compatible local Dilithium verifier. " + " | ".join(errors))
 
 
+def load_dilithium_sign_module():
+    errors = []
+
+    for module_name in DILITHIUM_VERIFY_MODULES:
+        try:
+            module = importlib.import_module(module_name)
+        except Exception as exc:
+            errors.append(f"{module_name}: import failed ({exc})")
+            continue
+
+        if not hasattr(module, "generate_keypair") or not hasattr(module, "sign"):
+            errors.append(f"{module_name}: missing generate_keypair() or sign()")
+            continue
+
+        return module_name, module
+
+    raise RuntimeError("No compatible local Dilithium signer. " + " | ".join(errors))
+
+
+def sign_dilithium_message(module, secret_key: bytes, message: bytes):
+    sign = getattr(module, "sign")
+
+    for args in (
+        (secret_key, message),
+        (message, secret_key),
+    ):
+        try:
+            signature = sign(*args)
+            if isinstance(signature, bytes) and len(signature) == DILITHIUM2_BYTES:
+                return signature
+        except Exception:
+            pass
+
+    raise RuntimeError("Local Dilithium sign() failed with supported argument orders")
+
+
 class UART3Protocol:
     def __init__(self, port, baud=4000000, max_buffer_size=65536, timeout=0.01):
         self.port = port
@@ -234,6 +270,53 @@ class STM32Dilithium:
         return verify_dilithium_signature(public_key, message, signature)
 
 
+class LaptopDilithium:
+    def __init__(self):
+        self.module_name, self.module = load_dilithium_sign_module()
+        self.public_key, self.secret_key = self.module.generate_keypair()
+
+        if len(self.public_key) != DILITHIUM2_PUBLICKEYBYTES:
+            raise RuntimeError(f"Laptop public key length wrong: {len(self.public_key)}")
+
+    def sign(self, message: bytes):
+        return sign_dilithium_message(self.module, self.secret_key, message)
+
+    def authenticate_to_mcu(self, uart: UART3Protocol):
+        uart.write_line("SET_LAPTOP_DILITHIUM_PUBLIC_KEY")
+        ready = uart.read_line(timeout=10.0)
+        if ready != "READY":
+            raise RuntimeError(f"SET_LAPTOP_DILITHIUM_PUBLIC_KEY expected READY, got {ready!r}")
+
+        uart.send_packet(self.public_key)
+        result = uart.read_line(timeout=10.0)
+        if result != "LAPTOP_PK_OK":
+            raise RuntimeError(f"Set laptop public key failed: {result!r}")
+
+        uart.write_line("GET_AUTH_CHALLENGE")
+        challenge = uart.receive_packet()
+        if len(challenge) != 32:
+            raise RuntimeError(f"Auth challenge length wrong: {len(challenge)}")
+
+        signature = self.sign(challenge)
+
+        uart.write_line("VERIFY_LAPTOP_AUTH")
+        ready = uart.read_line(timeout=10.0)
+        if ready != "READY":
+            raise RuntimeError(f"VERIFY_LAPTOP_AUTH expected READY, got {ready!r}")
+
+        uart.send_packet(signature)
+        result = uart.read_line(timeout=30.0)
+        if result != "LAPTOP_AUTH_OK":
+            raise RuntimeError(f"Laptop auth failed: {result!r}")
+
+        return {
+            "module": self.module_name,
+            "public_key": self.public_key,
+            "challenge": challenge,
+            "signature": signature,
+        }
+
+
 def open_camera(index: int, width: int, height: int, fps: int):
     cap = cv2.VideoCapture(index, cv2.CAP_DSHOW)
     if not cap.isOpened():
@@ -319,6 +402,15 @@ def run_camera_encryption(args):
         print(f"opening UART {args.port} @ {args.baud}")
         uart.open()
         clear_stm32(uart)
+
+        print("laptop auth: sign on laptop + verify on stm32")
+        laptop_auth = LaptopDilithium().authenticate_to_mcu(uart)
+        print(
+            "laptop auth: "
+            f"pk={len(laptop_auth['public_key'])} "
+            f"sig={len(laptop_auth['signature'])} "
+            f"mcu_verify=OK signer={laptop_auth['module']}"
+        )
 
         print("ml-kem: handshake")
         kem_result = STM32MLKEM(uart).handshake()
