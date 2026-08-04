@@ -1,11 +1,20 @@
 #include "main.h"
 
+#include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+
+// =====================================================
+// Peripheral handles
+// =====================================================
 
 RNG_HandleTypeDef hrng;
 SPI_HandleTypeDef hspi1;
 UART_HandleTypeDef huart3;
+
+// =====================================================
+// Function prototypes
+// =====================================================
 
 void SystemClock_Config(void);
 void Error_Handler(void);
@@ -18,6 +27,10 @@ static void MX_USART3_UART_Init(void);
 static void DWT_DelayInit(void);
 static void DelayUs(uint32_t microseconds);
 static void SPI_HandleOneRequest(void);
+
+// =====================================================
+// SPI protocol
+// =====================================================
 
 #define SPI_MAGIC               0x53504931UL
 #define SPI_HEADER_SIZE         16U
@@ -38,7 +51,9 @@ static void SPI_HandleOneRequest(void);
 #define SPI_STATUS_PROCESS_FAIL 0xE4U
 
 #define SPI_TIMEOUT_MS          5000U
-#define SPI_READY_LOW_US        1000U
+
+// Restore a very visible READY LOW pulse first.
+#define SPI_READY_LOW_US        20U
 
 #define SPI_READY_GPIO_Port     GPIOC
 #define SPI_READY_Pin           GPIO_PIN_6
@@ -54,15 +69,25 @@ typedef struct
     uint8_t reserved;
 } SpiHeader;
 
+// =====================================================
+// Buffers - all in SRAM
+// =====================================================
+
 static uint8_t requestHeaderRx[SPI_HEADER_SIZE];
 static uint8_t requestHeaderDummyTx[SPI_HEADER_SIZE];
+
 static uint8_t responseHeaderTx[SPI_HEADER_SIZE];
 static uint8_t responseHeaderDummyRx[SPI_HEADER_SIZE];
 
 static uint8_t requestPayload[SPI_MAX_PAYLOAD_SIZE];
 static uint8_t responsePayload[SPI_MAX_PAYLOAD_SIZE];
+
 static uint8_t payloadDummyTx[SPI_MAX_PAYLOAD_SIZE];
 static uint8_t payloadDummyRx[SPI_MAX_PAYLOAD_SIZE];
+
+// =====================================================
+// DWT delay
+// =====================================================
 
 static void DWT_DelayInit(void)
 {
@@ -84,6 +109,10 @@ static void DelayUs(uint32_t microseconds)
     }
 }
 
+// =====================================================
+// READY
+// =====================================================
+
 static void SPI_ReadyHigh(void)
 {
     HAL_GPIO_WritePin(
@@ -99,6 +128,10 @@ static void SPI_ReadyLow(void)
         SPI_READY_Pin,
         GPIO_PIN_RESET);
 }
+
+// =====================================================
+// Endian helpers
+// =====================================================
 
 static void WriteU32BE(uint8_t *destination, uint32_t value)
 {
@@ -141,6 +174,10 @@ static void DecodeHeader(const uint8_t *buffer, SpiHeader *header)
     header->reserved = buffer[15];
 }
 
+// =====================================================
+// SPI transfer
+// =====================================================
+
 static void SPI_Recover(void)
 {
     SPI_ReadyLow();
@@ -175,6 +212,10 @@ static HAL_StatusTypeDef SPI_SlaveTransferPhase(
 
     return status;
 }
+
+// =====================================================
+// Validation / processing
+// =====================================================
 
 static uint8_t ValidateRequestHeader(const SpiHeader *header)
 {
@@ -273,6 +314,7 @@ static uint8_t ProcessRequest(
             }
 
             responseHeader->payloadLength = size;
+
             return SPI_STATUS_OK;
         }
 
@@ -319,6 +361,10 @@ static HAL_StatusTypeDef SendResponse(
     return HAL_OK;
 }
 
+// =====================================================
+// Handle one complete request
+// =====================================================
+
 static void SPI_HandleOneRequest(void)
 {
     HAL_StatusTypeDef status;
@@ -327,6 +373,7 @@ static void SPI_HandleOneRequest(void)
     SpiHeader ackHeader = {0};
     SpiHeader responseHeader = {0};
 
+    // Phase 1: Request Header
     status = SPI_SlaveTransferPhase(
         requestHeaderDummyTx,
         requestHeaderRx,
@@ -343,6 +390,7 @@ static void SPI_HandleOneRequest(void)
     const uint8_t validationStatus =
         ValidateRequestHeader(&requestHeader);
 
+    // Phase 2: Header ACK
     ackHeader.magic = SPI_MAGIC;
     ackHeader.sequence = requestHeader.sequence;
     ackHeader.payloadLength = 0U;
@@ -367,6 +415,7 @@ static void SPI_HandleOneRequest(void)
         return;
     }
 
+    // Phase 3: Request Payload
     if (requestHeader.payloadLength > 0U)
     {
         status = SPI_SlaveTransferPhase(
@@ -386,6 +435,7 @@ static void SPI_HandleOneRequest(void)
             &requestHeader,
             &responseHeader);
 
+    // Phase 4/5: Final Response
     status = SendResponse(&responseHeader);
 
     if (status != HAL_OK)
@@ -393,6 +443,10 @@ static void SPI_HandleOneRequest(void)
         SPI_Recover();
     }
 }
+
+// =====================================================
+// Main
+// =====================================================
 
 int main(void)
 {
@@ -421,8 +475,19 @@ int main(void)
     while (1)
     {
         SPI_HandleOneRequest();
+
+//    	SPI1_KCLK=120000000
+//    	uint32_t spi1_kclk = HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_SPI1);
+//    	char buf[64];
+//    	int len = snprintf(buf, sizeof(buf), "SPI1_KCLK=%lu\r\n", (unsigned long)spi1_kclk);
+//    	HAL_UART_Transmit(&huart3, (uint8_t*)buf, len, 100);
+
     }
 }
+
+// =====================================================
+// Clock
+// =====================================================
 
 void SystemClock_Config(void)
 {
@@ -492,6 +557,10 @@ void SystemClock_Config(void)
     }
 }
 
+// =====================================================
+// RNG
+// =====================================================
+
 static void MX_RNG_Init(void)
 {
     hrng.Instance = RNG;
@@ -502,6 +571,10 @@ static void MX_RNG_Init(void)
         Error_Handler();
     }
 }
+
+// =====================================================
+// SPI1
+// =====================================================
 
 static void MX_SPI1_Init(void)
 {
@@ -540,6 +613,10 @@ static void MX_SPI1_Init(void)
         Error_Handler();
     }
 }
+
+// =====================================================
+// USART3
+// =====================================================
 
 static void MX_USART3_UART_Init(void)
 {
@@ -581,6 +658,10 @@ static void MX_USART3_UART_Init(void)
     }
 }
 
+// =====================================================
+// GPIO
+// =====================================================
+
 static void MX_GPIO_Init(void)
 {
     GPIO_InitTypeDef GPIO_InitStruct = {0};
@@ -605,6 +686,10 @@ static void MX_GPIO_Init(void)
         SPI_READY_GPIO_Port,
         &GPIO_InitStruct);
 }
+
+// =====================================================
+// Error
+// =====================================================
 
 void Error_Handler(void)
 {

@@ -108,7 +108,7 @@
 #define SPI_STATUS_PROCESS_FAIL 0xE4U
 
 // Start with a stable speed. Raise after checking PERF output.
-#define SPI_SPEED_HZ            900000U
+#define SPI_SPEED_HZ            985000U
 #define READY_TIMEOUT_MS        5000U
 
 // =====================================================
@@ -464,8 +464,8 @@ static bool WaitReadyLevel(int expectedLevel, uint32_t timeoutMs)
         {
             return false;
         }
-
-        delayMicroseconds(200);
+        
+        delayMicroseconds(20);
     }
 
     return true;
