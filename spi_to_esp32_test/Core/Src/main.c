@@ -1,144 +1,667 @@
-/* USER CODE BEGIN Header */
-/**
-  ******************************************************************************
-  * @file           : main.c
-  * @brief          : ESP32-S3 SPI Master <-> STM32H753 SPI Slave
-  ******************************************************************************
-  */
-/* USER CODE END Header */
 
-/* Includes ------------------------------------------------------------------*/
+
+
 #include "main.h"
 
-/* Private includes ----------------------------------------------------------*/
-/* USER CODE BEGIN Includes */
 #include <stdio.h>
 #include <string.h>
-/* USER CODE END Includes */
-
-/* Private typedef -----------------------------------------------------------*/
-/* USER CODE BEGIN PTD */
-
-/* USER CODE END PTD */
-
-/* Private define ------------------------------------------------------------*/
-/* USER CODE BEGIN PD */
-
-#define SPI_PACKET_SIZE 32U
-
-/* USER CODE END PD */
-
-/* Private macro -------------------------------------------------------------*/
-/* USER CODE BEGIN PM */
-
-/* USER CODE END PM */
-
-/* Private variables ---------------------------------------------------------*/
 
 RNG_HandleTypeDef hrng;
-
 SPI_HandleTypeDef hspi1;
-
 UART_HandleTypeDef huart3;
 
-/* USER CODE BEGIN PV */
-
-static uint8_t spiTxBuffer[SPI_PACKET_SIZE];
-static uint8_t spiRxBuffer[SPI_PACKET_SIZE];
-
-/* USER CODE END PV */
-
-/* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_RNG_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_USART3_UART_Init(void);
 
-/* USER CODE BEGIN PFP */
+// =====================================================
+// SPI protocol
+// =====================================================
 
-static void UART_SendString(const char *text);
+#define SPI_MAGIC               0x53504931UL
+#define SPI_HEADER_SIZE         16U
+#define SPI_MAX_PAYLOAD_SIZE    16384U
 
-static void UART_PrintBuffer(
-		const char *title,
-		const uint8_t *buffer,
-		uint32_t length
-);
+#define SPI_FLAG_REQUEST        0x01U
+#define SPI_FLAG_RESPONSE       0x02U
 
-static void PrepareTxBuffer(void);
-static uint8_t CheckRxBuffer(uint8_t expectedValue);
+#define SPI_CMD_PING            0x01U
+#define SPI_CMD_PROCESS         0x02U
 
-/* USER CODE END PFP */
+#define SPI_STATUS_NONE         0x00U
+#define SPI_STATUS_OK           0x80U
+#define SPI_STATUS_BAD_HEADER   0xE1U
+#define SPI_STATUS_BAD_LENGTH   0xE2U
+#define SPI_STATUS_BAD_COMMAND  0xE3U
+#define SPI_STATUS_PROCESS_FAIL 0xE4U
+#define SPI_STATUS_HEADER_OK    0x10U
 
-/* Private user code ---------------------------------------------------------*/
-/* USER CODE BEGIN 0 */
+#define SPI_TIMEOUT_MS          5000U
 
-/**
-  * @brief Send a null-terminated string through USART3.
-  */
-static void UART_SendString(const char *text) {
-		if (text == NULL) {
-				return;
-		}
+#define SPI_READY_GPIO_Port GPIOC
+#define SPI_READY_Pin       GPIO_PIN_6
 
-		HAL_UART_Transmit(
-				&huart3,
-				(uint8_t *)text,
-				(uint16_t)strlen(text),
-				HAL_MAX_DELAY
-		);
+typedef struct
+{
+    uint32_t magic;
+    uint32_t sequence;
+    uint32_t payloadLength;
+    uint8_t command;
+    uint8_t status;
+    uint8_t flags;
+    uint8_t reserved;
+} SpiHeader;
+
+// =====================================================
+// Buffers
+// =====================================================
+
+static uint8_t requestHeaderRx[SPI_HEADER_SIZE];
+static uint8_t requestHeaderTx[SPI_HEADER_SIZE];
+
+static uint8_t responseHeaderTx[SPI_HEADER_SIZE];
+static uint8_t responseHeaderRx[SPI_HEADER_SIZE];
+
+static uint8_t requestPayload[SPI_MAX_PAYLOAD_SIZE];
+static uint8_t responsePayload[SPI_MAX_PAYLOAD_SIZE];
+
+// During response transmission, dummy bytes from ESP32
+// are stored here.
+static uint8_t responseDummyRx[SPI_MAX_PAYLOAD_SIZE];
+
+// =====================================================
+// UART helper
+// =====================================================
+
+static void UART_SendString(const char *text)
+{
+    if (text == NULL)
+    {
+        return;
+    }
+
+//    HAL_UART_Transmit(
+//        &huart3,
+//        (uint8_t *)text,
+//        (uint16_t)strlen(text),
+//        HAL_MAX_DELAY
+//	);
 }
 
-/**
-  * @brief Print a byte buffer in hexadecimal format.
-  */
-static void UART_PrintBuffer(const char *title, const uint8_t *buffer, uint32_t length) {
-		char output[16];
+// =====================================================
+// READY helper
+// =====================================================
 
-		UART_SendString(title);
-
-		for (uint32_t i = 0; i < length; i++) {
-				snprintf(
-						output,
-						sizeof(output),
-						"%02X ",
-						buffer[i]
-				);
-
-				UART_SendString(output);
-		}
-
-		UART_SendString("\r\n");
+static void SPI_ReadyHigh(void)
+{
+    HAL_GPIO_WritePin(
+        SPI_READY_GPIO_Port,
+        SPI_READY_Pin,
+        GPIO_PIN_SET);
 }
 
-/**
-  * @brief Fill the STM32 TX buffer with 0xA5.
-  */
-static void PrepareTxBuffer(void) {
-		for (uint32_t i = 0; i < SPI_PACKET_SIZE; i++) {
-				spiTxBuffer[i] = 0xA5;
-		}
+static void SPI_ReadyLow(void)
+{
+    HAL_GPIO_WritePin(
+        SPI_READY_GPIO_Port,
+        SPI_READY_Pin,
+        GPIO_PIN_RESET);
 }
 
-/**
-  * @brief Check whether all received bytes match the expected value.
-  */
-static uint8_t CheckRxBuffer(uint8_t expectedValue) {
-		for (uint32_t i = 0; i < SPI_PACKET_SIZE; i++) {
-				if (spiRxBuffer[i] != expectedValue) {
-						return 0U;
-				}
-		}
+// =====================================================
+// Big-endian functions
+// =====================================================
 
-		return 1U;
+static void WriteU32BE(uint8_t *destination, uint32_t value)
+{
+    destination[0] = (uint8_t)((value >> 24U) & 0xFFU);
+    destination[1] = (uint8_t)((value >> 16U) & 0xFFU);
+    destination[2] = (uint8_t)((value >> 8U) & 0xFFU);
+    destination[3] = (uint8_t)(value & 0xFFU);
 }
 
-/* USER CODE END 0 */
+static uint32_t ReadU32BE(const uint8_t *source)
+{
+    return
+        ((uint32_t)source[0] << 24U) |
+        ((uint32_t)source[1] << 16U) |
+        ((uint32_t)source[2] << 8U) |
+        (uint32_t)source[3];
+}
 
-/**
-  * @brief  The application entry point.
-  * @retval int
-  */
+// =====================================================
+// Header encode/decode
+// =====================================================
+
+static void EncodeHeader(
+    uint8_t *buffer,
+    const SpiHeader *header)
+{
+    WriteU32BE(&buffer[0], header->magic);
+    WriteU32BE(&buffer[4], header->sequence);
+    WriteU32BE(&buffer[8], header->payloadLength);
+
+    buffer[12] = header->command;
+    buffer[13] = header->status;
+    buffer[14] = header->flags;
+    buffer[15] = header->reserved;
+}
+
+static void DecodeHeader(
+    const uint8_t *buffer,
+    SpiHeader *header)
+{
+    header->magic = ReadU32BE(&buffer[0]);
+    header->sequence = ReadU32BE(&buffer[4]);
+    header->payloadLength = ReadU32BE(&buffer[8]);
+
+    header->command = buffer[12];
+    header->status = buffer[13];
+    header->flags = buffer[14];
+    header->reserved = buffer[15];
+}
+
+// =====================================================
+// SPI recovery
+// =====================================================
+
+static void SPI_Recover(void)
+{
+    SPI_ReadyLow();
+
+    HAL_SPI_Abort(&hspi1);
+
+    /*
+     * On STM32H7, HAL_SPI_Abort normally handles the
+     * transfer state. Avoid manually clearing random
+     * flags unless debugging proves it is required.
+     */
+
+    HAL_Delay(1);
+}
+
+// =====================================================
+// One synchronized SPI phase
+// =====================================================
+
+static HAL_StatusTypeDef SPI_SlaveTransferPhase(
+    const uint8_t *txBuffer,
+    uint8_t *rxBuffer,
+    uint16_t length)
+{
+    HAL_StatusTypeDef status;
+
+    /*
+     * 宣告 H753 即將準備接收。
+     */
+    SPI_ReadyHigh();
+
+    status = HAL_SPI_TransmitReceive(
+        &hspi1,
+        (uint8_t *)txBuffer,
+        rxBuffer,
+        length,
+        SPI_TIMEOUT_MS
+    );
+
+    SPI_ReadyLow();
+
+    /*
+     * 確保 ESP32 一定看得到 LOW。
+     * 除錯階段先使用 1 ms。
+     */
+    HAL_Delay(1);
+
+    return status;
+}
+
+// =====================================================
+// Validate request header
+// =====================================================
+
+static uint8_t ValidateRequestHeader(
+    const SpiHeader *header)
+{
+    if (header->magic != SPI_MAGIC)
+    {
+        UART_SendString("Header error: bad magic\r\n");
+        return SPI_STATUS_BAD_HEADER;
+    }
+
+    if (header->flags != SPI_FLAG_REQUEST)
+    {
+        UART_SendString("Header error: bad flags\r\n");
+        return SPI_STATUS_BAD_HEADER;
+    }
+
+    if (header->status != SPI_STATUS_NONE)
+    {
+        UART_SendString("Header error: request status is not NONE\r\n");
+        return SPI_STATUS_BAD_HEADER;
+    }
+
+    if (header->reserved != 0U)
+    {
+        UART_SendString("Header error: reserved is not zero\r\n");
+        return SPI_STATUS_BAD_HEADER;
+    }
+
+    if (header->payloadLength > SPI_MAX_PAYLOAD_SIZE)
+    {
+        UART_SendString("Header error: payload too large\r\n");
+        return SPI_STATUS_BAD_LENGTH;
+    }
+
+    switch (header->command)
+    {
+        case SPI_CMD_PING:
+        {
+            if (header->payloadLength != 0U)
+            {
+                UART_SendString(
+                    "PING error: payload length must be zero\r\n");
+
+                return SPI_STATUS_BAD_LENGTH;
+            }
+
+            break;
+        }
+
+        case SPI_CMD_PROCESS:
+        {
+            if (header->payloadLength == 0U)
+            {
+                UART_SendString(
+                    "PROCESS error: payload length is zero\r\n");
+
+                return SPI_STATUS_BAD_LENGTH;
+            }
+
+            break;
+        }
+
+        default:
+        {
+            UART_SendString("Header error: unknown command\r\n");
+            return SPI_STATUS_BAD_COMMAND;
+        }
+    }
+
+    return SPI_STATUS_OK;
+}
+
+// =====================================================
+// Process request
+// =====================================================
+
+static uint8_t ProcessRequest(
+    const SpiHeader *requestHeader,
+    SpiHeader *responseHeader)
+{
+    responseHeader->magic = SPI_MAGIC;
+    responseHeader->sequence = requestHeader->sequence;
+    responseHeader->command = requestHeader->command;
+    responseHeader->flags = SPI_FLAG_RESPONSE;
+    responseHeader->reserved = 0U;
+    responseHeader->payloadLength = 0U;
+    responseHeader->status = SPI_STATUS_OK;
+
+    switch (requestHeader->command)
+    {
+        case SPI_CMD_PING:
+        {
+            static const uint8_t pong[] = {
+                'P', 'O', 'N', 'G'
+            };
+
+            memcpy(
+                responsePayload,
+                pong,
+                sizeof(pong));
+
+            responseHeader->payloadLength =
+                (uint32_t)sizeof(pong);
+
+            return SPI_STATUS_OK;
+        }
+
+        case SPI_CMD_PROCESS:
+        {
+            uint32_t size = requestHeader->payloadLength;
+
+            /*
+             * Demonstration processing:
+             * XOR every byte with 0xA5.
+             *
+             * Replace this loop with AES encryption later.
+             */
+            for (uint32_t i = 0U; i < size; i++)
+            {
+                responsePayload[i] =
+                    requestPayload[i] ^ 0xA5U;
+            }
+
+            responseHeader->payloadLength = size;
+
+            return SPI_STATUS_OK;
+        }
+
+        default:
+            responseHeader->payloadLength = 0U;
+            return SPI_STATUS_BAD_COMMAND;
+    }
+}
+
+static HAL_StatusTypeDef SPI_SendHeader(
+    const SpiHeader *header)
+{
+    memset(
+        responseHeaderTx,
+        0,
+        sizeof(responseHeaderTx));
+
+    memset(
+        responseHeaderRx,
+        0,
+        sizeof(responseHeaderRx));
+
+    EncodeHeader(
+        responseHeaderTx,
+        header);
+
+    return SPI_SlaveTransferPhase(
+        responseHeaderTx,
+        responseHeaderRx,
+        SPI_HEADER_SIZE);
+}
+
+// =====================================================
+// Send response
+// =====================================================
+
+static HAL_StatusTypeDef SendResponse(
+    const SpiHeader *responseHeader)
+{
+    HAL_StatusTypeDef status;
+
+    memset(
+        responseHeaderTx,
+        0,
+        sizeof(responseHeaderTx));
+
+    memset(
+        responseHeaderRx,
+        0,
+        sizeof(responseHeaderRx));
+
+    EncodeHeader(
+        responseHeaderTx,
+        responseHeader);
+
+    // -------------------------------------------------
+    // Response Header
+    // -------------------------------------------------
+
+    status = SPI_SlaveTransferPhase(
+        responseHeaderTx,
+        responseHeaderRx,
+        SPI_HEADER_SIZE);
+
+    if (status != HAL_OK)
+    {
+        return status;
+    }
+
+    // -------------------------------------------------
+    // Response Payload
+    // -------------------------------------------------
+
+    if (responseHeader->payloadLength > 0U)
+    {
+        memset(
+            responseDummyRx,
+            0,
+            responseHeader->payloadLength);
+
+        status = SPI_SlaveTransferPhase(
+            responsePayload,
+            responseDummyRx,
+            (uint16_t)responseHeader->payloadLength);
+
+        if (status != HAL_OK)
+        {
+            return status;
+        }
+    }
+
+    return HAL_OK;
+}
+
+// =====================================================
+// Handle one complete request
+// =====================================================
+
+static void SPI_HandleOneRequest(void)
+{
+    HAL_StatusTypeDef status;
+
+    SpiHeader requestHeader;
+    SpiHeader ackHeader;
+    SpiHeader responseHeader;
+
+    memset(&requestHeader, 0, sizeof(requestHeader));
+    memset(&ackHeader, 0, sizeof(ackHeader));
+    memset(&responseHeader, 0, sizeof(responseHeader));
+
+    memset(
+        requestHeaderTx,
+        0,
+        sizeof(requestHeaderTx));
+
+    memset(
+        requestHeaderRx,
+        0,
+        sizeof(requestHeaderRx));
+
+    // =================================================
+    // Phase 1: Receive Request Header
+    // =================================================
+
+    status = SPI_SlaveTransferPhase(
+        requestHeaderTx,
+        requestHeaderRx,
+        SPI_HEADER_SIZE);
+
+    if (status != HAL_OK)
+    {
+        char message[120];
+
+        snprintf(
+            message,
+            sizeof(message),
+            "Request header failed: status=%d error=0x%08lX\r\n",
+            (int)status,
+            (unsigned long)HAL_SPI_GetError(&hspi1));
+
+        UART_SendString(message);
+
+        SPI_Recover();
+        return;
+    }
+
+    DecodeHeader(
+        requestHeaderRx,
+        &requestHeader);
+
+    char message[200];
+
+    snprintf(
+        message,
+        sizeof(message),
+        "Header magic=%08lX seq=%lu len=%lu "
+        "cmd=%02X status=%02X flags=%02X reserved=%02X\r\n",
+        (unsigned long)requestHeader.magic,
+        (unsigned long)requestHeader.sequence,
+        (unsigned long)requestHeader.payloadLength,
+        requestHeader.command,
+        requestHeader.status,
+        requestHeader.flags,
+        requestHeader.reserved);
+
+    UART_SendString(message);
+
+    uint8_t validationStatus =
+        ValidateRequestHeader(&requestHeader);
+
+    // =================================================
+    // Phase 2: Send Header ACK
+    // =================================================
+
+    ackHeader.magic = SPI_MAGIC;
+    ackHeader.sequence = requestHeader.sequence;
+    ackHeader.payloadLength = 0U;
+    ackHeader.command = requestHeader.command;
+    ackHeader.flags = SPI_FLAG_RESPONSE;
+    ackHeader.reserved = 0U;
+
+    if (validationStatus == SPI_STATUS_OK)
+    {
+        ackHeader.status = SPI_STATUS_HEADER_OK;
+    }
+    else
+    {
+        ackHeader.status = validationStatus;
+    }
+
+    status = SPI_SendHeader(&ackHeader);
+
+    if (status != HAL_OK)
+    {
+        snprintf(
+            message,
+            sizeof(message),
+            "Header ACK failed: status=%d error=0x%08lX\r\n",
+            (int)status,
+            (unsigned long)HAL_SPI_GetError(&hspi1));
+
+        UART_SendString(message);
+
+        SPI_Recover();
+        return;
+    }
+
+    /*
+     * Header 錯誤時，不接收 Payload。
+     * ESP32 收到錯誤 ACK 後也不會傳 Payload。
+     */
+    if (validationStatus != SPI_STATUS_OK)
+    {
+        snprintf(
+            message,
+            sizeof(message),
+            "Header rejected: status=0x%02X\r\n",
+            validationStatus);
+
+        UART_SendString(message);
+
+        return;
+    }
+
+    // =================================================
+    // Phase 3: Receive Request Payload
+    // =================================================
+
+    if (requestHeader.payloadLength > 0U)
+    {
+        memset(
+            requestPayload,
+            0,
+            requestHeader.payloadLength);
+
+        /*
+         * H753 在接收 Request Payload 時沒有資料要回傳，
+         * 因此 MISO 傳送全 0 dummy bytes。
+         */
+        memset(
+            responseDummyRx,
+            0,
+            requestHeader.payloadLength);
+
+        status = SPI_SlaveTransferPhase(
+            responseDummyRx,
+            requestPayload,
+            (uint16_t)requestHeader.payloadLength);
+
+        if (status != HAL_OK)
+        {
+            snprintf(
+                message,
+                sizeof(message),
+                "Request payload failed: status=%d error=0x%08lX\r\n",
+                (int)status,
+                (unsigned long)HAL_SPI_GetError(&hspi1));
+
+            UART_SendString(message);
+
+            SPI_Recover();
+            return;
+        }
+    }
+
+    // =================================================
+    // Process Request
+    // =================================================
+
+    responseHeader.magic = SPI_MAGIC;
+    responseHeader.sequence = requestHeader.sequence;
+    responseHeader.payloadLength = 0U;
+    responseHeader.command = requestHeader.command;
+    responseHeader.status = SPI_STATUS_OK;
+    responseHeader.flags = SPI_FLAG_RESPONSE;
+    responseHeader.reserved = 0U;
+
+    responseHeader.status = ProcessRequest(
+        &requestHeader,
+        &responseHeader);
+
+    snprintf(
+        message,
+        sizeof(message),
+        "Request seq=%lu cmd=0x%02X request=%lu "
+        "response=%lu status=0x%02X\r\n",
+        (unsigned long)requestHeader.sequence,
+        requestHeader.command,
+        (unsigned long)requestHeader.payloadLength,
+        (unsigned long)responseHeader.payloadLength,
+        responseHeader.status);
+
+    UART_SendString(message);
+
+    // =================================================
+    // Phase 4/5: Send Final Response
+    // =================================================
+
+    status = SendResponse(&responseHeader);
+
+    if (status != HAL_OK)
+    {
+        snprintf(
+            message,
+            sizeof(message),
+            "Final response failed: status=%d error=0x%08lX\r\n",
+            (int)status,
+            (unsigned long)HAL_SPI_GetError(&hspi1));
+
+        UART_SendString(message);
+
+        SPI_Recover();
+        return;
+    }
+}
+
+
 int main(void)
 {
 		/* MCU Configuration------------------------------------------------------*/
@@ -153,91 +676,20 @@ int main(void)
 		MX_SPI1_Init();
 		MX_USART3_UART_Init();
 
-		/* USER CODE BEGIN 2 */
 
-		PrepareTxBuffer();
+		SPI_ReadyLow();
 
-		memset(spiRxBuffer, 0, sizeof(spiRxBuffer));
+		UART_SendString(
+			"\r\nSTM32H753 SPI Slave server started\r\n");
 
-		UART_SendString("\r\n");
-		UART_SendString("========================================\r\n");
-		UART_SendString("STM32H753 SPI1 Slave started\r\n");
-		UART_SendString("SPI mode: Mode 0\r\n");
-		UART_SendString("SPI NSS: Hardware input PA4\r\n");
-		UART_SendString("SPI SCK: PA5\r\n");
-		UART_SendString("SPI MISO: PA6\r\n");
-		UART_SendString("SPI MOSI: PB5\r\n");
-		UART_SendString("Packet size: 32 bytes\r\n");
-		UART_SendString("STM32 TX value: A5\r\n");
-		UART_SendString("Expected ESP32 TX value: 55\r\n");
-		UART_SendString("========================================\r\n");
+		UART_SendString(
+			"Protocol: request header, request payload, "
+			"response header, response payload\r\n");
 
-		/* USER CODE END 2 */
-
-		/* Infinite loop */
-		/* USER CODE BEGIN WHILE */
-
-		while (1) {
-				memset(spiRxBuffer, 0, sizeof(spiRxBuffer));
-
-				UART_SendString("\r\nWaiting for ESP32 SPI transaction...\r\n");
-
-				/*
-				* STM32 is SPI slave.
-				*
-				* The function waits until the ESP32:
-				* 1. Pulls PA4/NSS LOW
-				* 2. Generates 32 bytes of SPI clock
-				* 3. Sends 32 bytes through MOSI
-				*
-				* At the same time STM32 sends 32 bytes of 0xA5
-				* through PA6/MISO.
-				*/
-				HAL_StatusTypeDef status = HAL_SPI_TransmitReceive(
-						&hspi1,
-						spiTxBuffer,
-						spiRxBuffer,
-						SPI_PACKET_SIZE,
-						HAL_MAX_DELAY
-				);
-
-				if (status == HAL_OK) {
-						UART_SendString("SPI transaction completed\r\n");
-
-						UART_PrintBuffer("STM32 received:    ", spiRxBuffer, SPI_PACKET_SIZE);
-
-						UART_PrintBuffer("STM32 transmitted: ", spiTxBuffer, SPI_PACKET_SIZE);
-
-						if (CheckRxBuffer(0x55U)) {
-								UART_SendString("RX check: PASS, all bytes are 55\r\n");
-						}
-						else {
-								UART_SendString("RX check: FAIL, received data is not all 55\r\n");
-						}
-				}
-				else {
-						char errorMessage[80];
-
-						snprintf(
-								errorMessage,
-								sizeof(errorMessage),
-								"SPI error, HAL status=%d, error code=0x%08lX\r\n",
-								(int)status,
-								HAL_SPI_GetError(&hspi1)
-						);
-
-						UART_SendString(errorMessage);
-
-						HAL_SPI_Abort(&hspi1);
-
-						__HAL_SPI_CLEAR_OVRFLAG(&hspi1);
-						__HAL_SPI_CLEAR_UDRFLAG(&hspi1);
-
-						HAL_Delay(100);
-				}
+		while (1)
+		{
+			SPI_HandleOneRequest();
 		}
-
-		/* USER CODE END WHILE */
 }
 
 /**
@@ -524,6 +976,17 @@ static void MX_GPIO_Init(void)
     __HAL_RCC_GPIOA_CLK_ENABLE();
     __HAL_RCC_GPIOD_CLK_ENABLE();
     __HAL_RCC_GPIOB_CLK_ENABLE();
+
+    /* 預設先拉低 READY */
+    HAL_GPIO_WritePin(SPI_READY_GPIO_Port, SPI_READY_Pin, GPIO_PIN_RESET);
+
+    /* PC6 設定成 READY 輸出 */
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+    GPIO_InitStruct.Pin = SPI_READY_Pin;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init(SPI_READY_GPIO_Port, &GPIO_InitStruct);
 }
 
 /**
