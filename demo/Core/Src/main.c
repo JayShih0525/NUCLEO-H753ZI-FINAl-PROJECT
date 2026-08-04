@@ -1,7 +1,6 @@
-
 #include "main.h"
 
-#include <stdio.h>
+#include <stdint.h>
 #include <string.h>
 
 RNG_HandleTypeDef hrng;
@@ -9,29 +8,40 @@ SPI_HandleTypeDef hspi1;
 UART_HandleTypeDef huart3;
 
 void SystemClock_Config(void);
+void Error_Handler(void);
+
 static void MX_GPIO_Init(void);
 static void MX_RNG_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_USART3_UART_Init(void);
 
+static void DWT_DelayInit(void);
+static void DelayUs(uint32_t microseconds);
+static void SPI_HandleOneRequest(void);
+
 #define SPI_MAGIC               0x53504931UL
 #define SPI_HEADER_SIZE         16U
 #define SPI_MAX_PAYLOAD_SIZE    16384U
+
 #define SPI_FLAG_REQUEST        0x01U
 #define SPI_FLAG_RESPONSE       0x02U
+
 #define SPI_CMD_PING            0x01U
 #define SPI_CMD_PROCESS         0x02U
+
 #define SPI_STATUS_NONE         0x00U
+#define SPI_STATUS_HEADER_OK    0x10U
 #define SPI_STATUS_OK           0x80U
 #define SPI_STATUS_BAD_HEADER   0xE1U
 #define SPI_STATUS_BAD_LENGTH   0xE2U
 #define SPI_STATUS_BAD_COMMAND  0xE3U
 #define SPI_STATUS_PROCESS_FAIL 0xE4U
-#define SPI_STATUS_HEADER_OK    0x10U
-#define SPI_TIMEOUT_MS          5000U
 
-#define SPI_READY_GPIO_Port GPIOC
-#define SPI_READY_Pin       GPIO_PIN_6
+#define SPI_TIMEOUT_MS          5000U
+#define SPI_READY_LOW_US        1000U
+
+#define SPI_READY_GPIO_Port     GPIOC
+#define SPI_READY_Pin           GPIO_PIN_6
 
 typedef struct
 {
@@ -45,38 +55,49 @@ typedef struct
 } SpiHeader;
 
 static uint8_t requestHeaderRx[SPI_HEADER_SIZE];
-static uint8_t requestHeaderTx[SPI_HEADER_SIZE];
+static uint8_t requestHeaderDummyTx[SPI_HEADER_SIZE];
 static uint8_t responseHeaderTx[SPI_HEADER_SIZE];
-static uint8_t responseHeaderRx[SPI_HEADER_SIZE];
+static uint8_t responseHeaderDummyRx[SPI_HEADER_SIZE];
+
 static uint8_t requestPayload[SPI_MAX_PAYLOAD_SIZE];
 static uint8_t responsePayload[SPI_MAX_PAYLOAD_SIZE];
-static uint8_t responseDummyRx[SPI_MAX_PAYLOAD_SIZE];
+static uint8_t payloadDummyTx[SPI_MAX_PAYLOAD_SIZE];
+static uint8_t payloadDummyRx[SPI_MAX_PAYLOAD_SIZE];
 
-static void UART_SendString(const char *text)
+static void DWT_DelayInit(void)
 {
-    if (text == NULL)
-    {
-        return;
-    }
+    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+    DWT->CYCCNT = 0U;
+    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+}
 
-    /* Keep disabled during performance testing. */
-    /*
-    HAL_UART_Transmit(
-        &huart3,
-        (uint8_t *)text,
-        (uint16_t)strlen(text),
-        HAL_MAX_DELAY);
-    */
+static void DelayUs(uint32_t microseconds)
+{
+    const uint32_t cycles =
+        (SystemCoreClock / 1000000U) * microseconds;
+
+    const uint32_t start = DWT->CYCCNT;
+
+    while ((uint32_t)(DWT->CYCCNT - start) < cycles)
+    {
+        __NOP();
+    }
 }
 
 static void SPI_ReadyHigh(void)
 {
-    HAL_GPIO_WritePin(SPI_READY_GPIO_Port, SPI_READY_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(
+        SPI_READY_GPIO_Port,
+        SPI_READY_Pin,
+        GPIO_PIN_SET);
 }
 
 static void SPI_ReadyLow(void)
 {
-    HAL_GPIO_WritePin(SPI_READY_GPIO_Port, SPI_READY_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(
+        SPI_READY_GPIO_Port,
+        SPI_READY_Pin,
+        GPIO_PIN_RESET);
 }
 
 static void WriteU32BE(uint8_t *destination, uint32_t value)
@@ -101,6 +122,7 @@ static void EncodeHeader(uint8_t *buffer, const SpiHeader *header)
     WriteU32BE(&buffer[0], header->magic);
     WriteU32BE(&buffer[4], header->sequence);
     WriteU32BE(&buffer[8], header->payloadLength);
+
     buffer[12] = header->command;
     buffer[13] = header->status;
     buffer[14] = header->flags;
@@ -112,6 +134,7 @@ static void DecodeHeader(const uint8_t *buffer, SpiHeader *header)
     header->magic = ReadU32BE(&buffer[0]);
     header->sequence = ReadU32BE(&buffer[4]);
     header->payloadLength = ReadU32BE(&buffer[8]);
+
     header->command = buffer[12];
     header->status = buffer[13];
     header->flags = buffer[14];
@@ -125,126 +148,128 @@ static void SPI_Recover(void)
     HAL_Delay(1);
 }
 
-static void DelayCycles(volatile uint32_t cycles)
-{
-    while (cycles-- > 0U)
-    {
-        __NOP();
-    }
-}
-
 static HAL_StatusTypeDef SPI_SlaveTransferPhase(
     const uint8_t *txBuffer,
     uint8_t *rxBuffer,
     uint16_t length)
 {
-    HAL_StatusTypeDef status;
+    if ((txBuffer == NULL) ||
+        (rxBuffer == NULL) ||
+        (length == 0U))
+    {
+        return HAL_ERROR;
+    }
 
     SPI_ReadyHigh();
 
-    status = HAL_SPI_TransmitReceive(
-        &hspi1,
-        (uint8_t *)txBuffer,
-        rxBuffer,
-        length,
-        SPI_TIMEOUT_MS);
+    HAL_StatusTypeDef status =
+        HAL_SPI_TransmitReceive(
+            &hspi1,
+            (uint8_t *)txBuffer,
+            rxBuffer,
+            length,
+            SPI_TIMEOUT_MS);
 
     SPI_ReadyLow();
-
-    /*
-     * 讓 ESP32 有機會偵測 READY LOW。
-     * 先從短暫 busy-wait 開始測試。
-     */
-    DelayCycles(500U);
+    DelayUs(SPI_READY_LOW_US);
 
     return status;
 }
 
 static uint8_t ValidateRequestHeader(const SpiHeader *header)
 {
+    if (header == NULL)
+    {
+        return SPI_STATUS_BAD_HEADER;
+    }
+
     if (header->magic != SPI_MAGIC)
     {
-        UART_SendString("Header error: bad magic\r\n");
         return SPI_STATUS_BAD_HEADER;
     }
 
     if (header->flags != SPI_FLAG_REQUEST)
     {
-        UART_SendString("Header error: bad flags\r\n");
         return SPI_STATUS_BAD_HEADER;
     }
 
     if (header->status != SPI_STATUS_NONE)
     {
-        UART_SendString("Header error: request status is not NONE\r\n");
         return SPI_STATUS_BAD_HEADER;
     }
 
     if (header->reserved != 0U)
     {
-        UART_SendString("Header error: reserved is not zero\r\n");
         return SPI_STATUS_BAD_HEADER;
     }
 
     if (header->payloadLength > SPI_MAX_PAYLOAD_SIZE)
     {
-        UART_SendString("Header error: payload too large\r\n");
         return SPI_STATUS_BAD_LENGTH;
     }
 
     switch (header->command)
     {
         case SPI_CMD_PING:
-            if (header->payloadLength != 0U)
-            {
-                return SPI_STATUS_BAD_LENGTH;
-            }
-            break;
+            return
+                (header->payloadLength == 0U)
+                    ? SPI_STATUS_OK
+                    : SPI_STATUS_BAD_LENGTH;
 
         case SPI_CMD_PROCESS:
-            if (header->payloadLength == 0U)
-            {
-                return SPI_STATUS_BAD_LENGTH;
-            }
-            break;
+            return
+                (header->payloadLength > 0U)
+                    ? SPI_STATUS_OK
+                    : SPI_STATUS_BAD_LENGTH;
 
         default:
             return SPI_STATUS_BAD_COMMAND;
     }
-
-    return SPI_STATUS_OK;
 }
 
 static uint8_t ProcessRequest(
     const SpiHeader *requestHeader,
     SpiHeader *responseHeader)
 {
+    if ((requestHeader == NULL) ||
+        (responseHeader == NULL))
+    {
+        return SPI_STATUS_PROCESS_FAIL;
+    }
+
     responseHeader->magic = SPI_MAGIC;
     responseHeader->sequence = requestHeader->sequence;
+    responseHeader->payloadLength = 0U;
     responseHeader->command = requestHeader->command;
+    responseHeader->status = SPI_STATUS_OK;
     responseHeader->flags = SPI_FLAG_RESPONSE;
     responseHeader->reserved = 0U;
-    responseHeader->payloadLength = 0U;
-    responseHeader->status = SPI_STATUS_OK;
 
     switch (requestHeader->command)
     {
         case SPI_CMD_PING:
         {
-            static const uint8_t pong[] = {'P', 'O', 'N', 'G'};
+            static const uint8_t pong[] =
+            {
+                'P', 'O', 'N', 'G'
+            };
+
             memcpy(responsePayload, pong, sizeof(pong));
-            responseHeader->payloadLength = (uint32_t)sizeof(pong);
+            responseHeader->payloadLength =
+                (uint32_t)sizeof(pong);
+
             return SPI_STATUS_OK;
         }
 
         case SPI_CMD_PROCESS:
         {
-            uint32_t size = requestHeader->payloadLength;
+            const uint32_t size =
+                requestHeader->payloadLength;
 
-            /* Current demonstration processing. */
             for (uint32_t i = 0U; i < size; i++)
             {
-                responsePayload[i] = requestPayload[i] ^ 0xA5U;
+                responsePayload[i] =
+                    requestPayload[i] ^ 0xA5U;
             }
 
             responseHeader->payloadLength = size;
@@ -259,28 +284,19 @@ static uint8_t ProcessRequest(
 
 static HAL_StatusTypeDef SPI_SendHeader(const SpiHeader *header)
 {
-    memset(responseHeaderTx, 0, sizeof(responseHeaderTx));
-    memset(responseHeaderRx, 0, sizeof(responseHeaderRx));
     EncodeHeader(responseHeaderTx, header);
 
     return SPI_SlaveTransferPhase(
         responseHeaderTx,
-        responseHeaderRx,
+        responseHeaderDummyRx,
         SPI_HEADER_SIZE);
 }
 
-static HAL_StatusTypeDef SendResponse(const SpiHeader *responseHeader)
+static HAL_StatusTypeDef SendResponse(
+    const SpiHeader *responseHeader)
 {
-    HAL_StatusTypeDef status;
-
-    memset(responseHeaderTx, 0, sizeof(responseHeaderTx));
-    memset(responseHeaderRx, 0, sizeof(responseHeaderRx));
-    EncodeHeader(responseHeaderTx, responseHeader);
-
-    status = SPI_SlaveTransferPhase(
-        responseHeaderTx,
-        responseHeaderRx,
-        SPI_HEADER_SIZE);
+    HAL_StatusTypeDef status =
+        SPI_SendHeader(responseHeader);
 
     if (status != HAL_OK)
     {
@@ -289,11 +305,9 @@ static HAL_StatusTypeDef SendResponse(const SpiHeader *responseHeader)
 
     if (responseHeader->payloadLength > 0U)
     {
-        memset(responseDummyRx, 0, responseHeader->payloadLength);
-
         status = SPI_SlaveTransferPhase(
             responsePayload,
-            responseDummyRx,
+            payloadDummyRx,
             (uint16_t)responseHeader->payloadLength);
 
         if (status != HAL_OK)
@@ -308,20 +322,13 @@ static HAL_StatusTypeDef SendResponse(const SpiHeader *responseHeader)
 static void SPI_HandleOneRequest(void)
 {
     HAL_StatusTypeDef status;
-    SpiHeader requestHeader;
-    SpiHeader ackHeader;
-    SpiHeader responseHeader;
-    char message[200];
 
-    memset(&requestHeader, 0, sizeof(requestHeader));
-    memset(&ackHeader, 0, sizeof(ackHeader));
-    memset(&responseHeader, 0, sizeof(responseHeader));
-    memset(requestHeaderTx, 0, sizeof(requestHeaderTx));
-    memset(requestHeaderRx, 0, sizeof(requestHeaderRx));
+    SpiHeader requestHeader = {0};
+    SpiHeader ackHeader = {0};
+    SpiHeader responseHeader = {0};
 
-    /* Phase 1: Receive Request Header */
     status = SPI_SlaveTransferPhase(
-        requestHeaderTx,
+        requestHeaderDummyTx,
         requestHeaderRx,
         SPI_HEADER_SIZE);
 
@@ -333,19 +340,19 @@ static void SPI_HandleOneRequest(void)
 
     DecodeHeader(requestHeaderRx, &requestHeader);
 
-    uint8_t validationStatus = ValidateRequestHeader(&requestHeader);
+    const uint8_t validationStatus =
+        ValidateRequestHeader(&requestHeader);
 
-    /* Phase 2: Send Header ACK */
     ackHeader.magic = SPI_MAGIC;
     ackHeader.sequence = requestHeader.sequence;
     ackHeader.payloadLength = 0U;
     ackHeader.command = requestHeader.command;
-    ackHeader.flags = SPI_FLAG_RESPONSE;
-    ackHeader.reserved = 0U;
     ackHeader.status =
         (validationStatus == SPI_STATUS_OK)
             ? SPI_STATUS_HEADER_OK
             : validationStatus;
+    ackHeader.flags = SPI_FLAG_RESPONSE;
+    ackHeader.reserved = 0U;
 
     status = SPI_SendHeader(&ackHeader);
 
@@ -360,14 +367,10 @@ static void SPI_HandleOneRequest(void)
         return;
     }
 
-    /* Phase 3: Receive Request Payload */
     if (requestHeader.payloadLength > 0U)
     {
-        memset(requestPayload, 0, requestHeader.payloadLength);
-        memset(responseDummyRx, 0, requestHeader.payloadLength);
-
         status = SPI_SlaveTransferPhase(
-            responseDummyRx,
+            payloadDummyTx,
             requestPayload,
             (uint16_t)requestHeader.payloadLength);
 
@@ -378,30 +381,11 @@ static void SPI_HandleOneRequest(void)
         }
     }
 
-    /* Process */
-    responseHeader.magic = SPI_MAGIC;
-    responseHeader.sequence = requestHeader.sequence;
-    responseHeader.payloadLength = 0U;
-    responseHeader.command = requestHeader.command;
-    responseHeader.status = SPI_STATUS_OK;
-    responseHeader.flags = SPI_FLAG_RESPONSE;
-    responseHeader.reserved = 0U;
+    responseHeader.status =
+        ProcessRequest(
+            &requestHeader,
+            &responseHeader);
 
-    responseHeader.status = ProcessRequest(
-        &requestHeader,
-        &responseHeader);
-
-    (void)snprintf(
-        message,
-        sizeof(message),
-        "Request seq=%lu request=%lu response=%lu status=0x%02X\r\n",
-        (unsigned long)requestHeader.sequence,
-        (unsigned long)requestHeader.payloadLength,
-        (unsigned long)responseHeader.payloadLength,
-        responseHeader.status);
-    UART_SendString(message);
-
-    /* Phase 4/5: Send Final Response */
     status = SendResponse(&responseHeader);
 
     if (status != HAL_OK)
@@ -414,10 +398,23 @@ int main(void)
 {
     HAL_Init();
     SystemClock_Config();
+
+    DWT_DelayInit();
+
     MX_GPIO_Init();
     MX_RNG_Init();
     MX_SPI1_Init();
     MX_USART3_UART_Init();
+
+    memset(
+        requestHeaderDummyTx,
+        0,
+        sizeof(requestHeaderDummyTx));
+
+    memset(
+        payloadDummyTx,
+        0,
+        sizeof(payloadDummyTx));
 
     SPI_ReadyLow();
 
@@ -442,9 +439,12 @@ void SystemClock_Config(void)
     RCC_OscInitStruct.OscillatorType =
         RCC_OSCILLATORTYPE_HSI48 |
         RCC_OSCILLATORTYPE_HSI;
+
     RCC_OscInitStruct.HSIState = RCC_HSI_DIV1;
-    RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+    RCC_OscInitStruct.HSICalibrationValue =
+        RCC_HSICALIBRATION_DEFAULT;
     RCC_OscInitStruct.HSI48State = RCC_HSI48_ON;
+
     RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
     RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
     RCC_OscInitStruct.PLL.PLLM = 4;
@@ -468,15 +468,25 @@ void SystemClock_Config(void)
         RCC_CLOCKTYPE_PCLK2 |
         RCC_CLOCKTYPE_D3PCLK1 |
         RCC_CLOCKTYPE_D1PCLK1;
-    RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-    RCC_ClkInitStruct.SYSCLKDivider = RCC_SYSCLK_DIV1;
-    RCC_ClkInitStruct.AHBCLKDivider = RCC_HCLK_DIV1;
-    RCC_ClkInitStruct.APB3CLKDivider = RCC_APB3_DIV1;
-    RCC_ClkInitStruct.APB1CLKDivider = RCC_APB1_DIV2;
-    RCC_ClkInitStruct.APB2CLKDivider = RCC_APB2_DIV1;
-    RCC_ClkInitStruct.APB4CLKDivider = RCC_APB4_DIV1;
 
-    if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+    RCC_ClkInitStruct.SYSCLKSource =
+        RCC_SYSCLKSOURCE_PLLCLK;
+    RCC_ClkInitStruct.SYSCLKDivider =
+        RCC_SYSCLK_DIV1;
+    RCC_ClkInitStruct.AHBCLKDivider =
+        RCC_HCLK_DIV1;
+    RCC_ClkInitStruct.APB3CLKDivider =
+        RCC_APB3_DIV1;
+    RCC_ClkInitStruct.APB1CLKDivider =
+        RCC_APB1_DIV2;
+    RCC_ClkInitStruct.APB2CLKDivider =
+        RCC_APB2_DIV1;
+    RCC_ClkInitStruct.APB4CLKDivider =
+        RCC_APB4_DIV1;
+
+    if (HAL_RCC_ClockConfig(
+            &RCC_ClkInitStruct,
+            FLASH_LATENCY_2) != HAL_OK)
     {
         Error_Handler();
     }
@@ -511,12 +521,18 @@ static void MX_SPI1_Init(void)
     hspi1.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
     hspi1.Init.NSSPolarity = SPI_NSS_POLARITY_LOW;
     hspi1.Init.FifoThreshold = SPI_FIFO_THRESHOLD_01DATA;
-    hspi1.Init.TxCRCInitializationPattern = SPI_CRC_INITIALIZATION_ALL_ZERO_PATTERN;
-    hspi1.Init.RxCRCInitializationPattern = SPI_CRC_INITIALIZATION_ALL_ZERO_PATTERN;
-    hspi1.Init.MasterSSIdleness = SPI_MASTER_SS_IDLENESS_00CYCLE;
-    hspi1.Init.MasterInterDataIdleness = SPI_MASTER_INTERDATA_IDLENESS_00CYCLE;
-    hspi1.Init.MasterReceiverAutoSusp = SPI_MASTER_RX_AUTOSUSP_DISABLE;
-    hspi1.Init.MasterKeepIOState = SPI_MASTER_KEEP_IO_STATE_DISABLE;
+    hspi1.Init.TxCRCInitializationPattern =
+        SPI_CRC_INITIALIZATION_ALL_ZERO_PATTERN;
+    hspi1.Init.RxCRCInitializationPattern =
+        SPI_CRC_INITIALIZATION_ALL_ZERO_PATTERN;
+    hspi1.Init.MasterSSIdleness =
+        SPI_MASTER_SS_IDLENESS_00CYCLE;
+    hspi1.Init.MasterInterDataIdleness =
+        SPI_MASTER_INTERDATA_IDLENESS_00CYCLE;
+    hspi1.Init.MasterReceiverAutoSusp =
+        SPI_MASTER_RX_AUTOSUSP_DISABLE;
+    hspi1.Init.MasterKeepIOState =
+        SPI_MASTER_KEEP_IO_STATE_DISABLE;
     hspi1.Init.IOSwap = SPI_IO_SWAP_DISABLE;
 
     if (HAL_SPI_Init(&hspi1) != HAL_OK)
@@ -537,19 +553,24 @@ static void MX_USART3_UART_Init(void)
     huart3.Init.OverSampling = UART_OVERSAMPLING_16;
     huart3.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
     huart3.Init.ClockPrescaler = UART_PRESCALER_DIV1;
-    huart3.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+    huart3.AdvancedInit.AdvFeatureInit =
+        UART_ADVFEATURE_NO_INIT;
 
     if (HAL_UART_Init(&huart3) != HAL_OK)
     {
         Error_Handler();
     }
 
-    if (HAL_UARTEx_SetTxFifoThreshold(&huart3, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
+    if (HAL_UARTEx_SetTxFifoThreshold(
+            &huart3,
+            UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
     {
         Error_Handler();
     }
 
-    if (HAL_UARTEx_SetRxFifoThreshold(&huart3, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
+    if (HAL_UARTEx_SetRxFifoThreshold(
+            &huart3,
+            UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
     {
         Error_Handler();
     }
@@ -570,13 +591,19 @@ static void MX_GPIO_Init(void)
     __HAL_RCC_GPIOD_CLK_ENABLE();
     __HAL_RCC_GPIOB_CLK_ENABLE();
 
-    HAL_GPIO_WritePin(SPI_READY_GPIO_Port, SPI_READY_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(
+        SPI_READY_GPIO_Port,
+        SPI_READY_Pin,
+        GPIO_PIN_RESET);
 
     GPIO_InitStruct.Pin = SPI_READY_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-    HAL_GPIO_Init(SPI_READY_GPIO_Port, &GPIO_InitStruct);
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+
+    HAL_GPIO_Init(
+        SPI_READY_GPIO_Port,
+        &GPIO_InitStruct);
 }
 
 void Error_Handler(void)
@@ -589,9 +616,11 @@ void Error_Handler(void)
 }
 
 #ifdef USE_FULL_ASSERT
+
 void assert_failed(uint8_t *file, uint32_t line)
 {
     (void)file;
     (void)line;
 }
+
 #endif

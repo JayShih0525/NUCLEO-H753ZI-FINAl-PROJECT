@@ -4,3 +4,8 @@ lsof /dev/cu.*
 python receive_camera.py \
   --port /dev/cu.usbmodem1101 \
   --baud 4000000
+
+
+python receive_camera.py \
+  --port /dev/cu.usbmodem1101 \
+  --baud 115200

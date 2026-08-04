@@ -3,10 +3,10 @@ from __future__ import annotations
 
 import argparse
 import struct
-import sys
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
+from typing import BinaryIO, Dict, Optional, Tuple
 
 import serial
 
@@ -17,15 +17,15 @@ except ImportError:
     cv2 = None
     np = None
 
+
 MAGIC = b"CAM1"
-HEADER_FORMAT = ">4sBBBBIIHHI"
-HEADER_SIZE = struct.calcsize(HEADER_FORMAT)  # 24
-VERSION = 1
-PACKET_DATA = 1
-PACKET_FRAME_END = 2
-PACKET_ERROR = 3
-MAX_FRAME_SIZE = 1024 * 1024
-MAX_CHUNK_SIZE = 16384
+HEADER_SIZE = 24
+PROTOCOL_VERSION = 1
+
+PACKET_DATA = 0x01
+PACKET_FRAME_END = 0x02
+PACKET_ERROR = 0x03
+PACKET_PERFORMANCE = 0x04
 
 STATUS_NAMES = {
     0x00: "OK",
@@ -33,191 +33,405 @@ STATUS_NAMES = {
     0x02: "FRAME_INVALID",
     0x03: "SPI_FAILED",
     0x04: "LENGTH_ERROR",
-    0x05: "UART_FAILED",
+    0x05: "OUTPUT_FAILED",
 }
 
+SPI_PHASE_NAMES = {
+    0: "NONE",
+    1: "WAIT_REQUEST_HEADER",
+    2: "WAIT_HEADER_ACK",
+    3: "INVALID_HEADER_ACK",
+    4: "WAIT_REQUEST_PAYLOAD",
+    5: "WAIT_FINAL_HEADER",
+    6: "INVALID_FINAL_HEADER",
+    7: "WAIT_RESPONSE_PAYLOAD",
+    8: "WAIT_FINAL_READY_LOW",
+}
+
+
 @dataclass
-class Frame:
+class PacketHeader:
+    version: int
+    packet_type: int
+    status: int
+    frame_id: int
+    total_length: int
+    chunk_index: int
+    chunk_count: int
+    payload_length: int
+
+
+@dataclass
+class FrameAssembly:
     total_length: int
     chunk_count: int
-    chunks: dict[int, bytes] = field(default_factory=dict)
-    created: float = field(default_factory=time.monotonic)
+    chunks: Dict[int, bytes]
 
 
-def read_exact(port: serial.Serial, size: int) -> bytes:
-    out = bytearray()
-    while len(out) < size:
-        part = port.read(size - len(out))
-        if not part:
-            raise TimeoutError(f"timeout: need {size}, got {len(out)}")
-        out.extend(part)
-    return bytes(out)
+def read_exact(port: BinaryIO, size: int) -> bytes:
+    data = bytearray()
+
+    while len(data) < size:
+        chunk = port.read(size - len(data))
+
+        if not chunk:
+            raise TimeoutError(
+                f"serial timeout: wanted={size}, received={len(data)}"
+            )
+
+        data.extend(chunk)
+
+    return bytes(data)
 
 
-def find_magic(port: serial.Serial) -> None:
-    window = bytearray()
+def find_magic(port: BinaryIO) -> None:
+    matched = 0
+
     while True:
-        b = port.read(1)
-        if not b:
-            raise TimeoutError("waiting for CAM1")
-        window += b
-        if len(window) > 4:
-            del window[0]
-        if bytes(window) == MAGIC:
-            return
+        byte = port.read(1)
+
+        if not byte:
+            print("waiting for next CAM1 packet...")
+            continue
+
+        if byte[0] == MAGIC[matched]:
+            matched += 1
+
+            if matched == len(MAGIC):
+                return
+        else:
+            matched = 1 if byte[0] == MAGIC[0] else 0
 
 
-def decode_jpeg(encrypted: bytes) -> bytes:
-    return bytes(b ^ 0xA5 for b in encrypted)
+def read_packet(port: BinaryIO) -> Tuple[PacketHeader, bytes]:
+    find_magic(port)
+
+    rest = read_exact(port, HEADER_SIZE - len(MAGIC))
+    raw_header = MAGIC + rest
+
+    version = raw_header[4]
+    packet_type = raw_header[5]
+    status = raw_header[6]
+    reserved = raw_header[7]
+
+    frame_id = struct.unpack(">I", raw_header[8:12])[0]
+    total_length = struct.unpack(">I", raw_header[12:16])[0]
+    chunk_index = struct.unpack(">H", raw_header[16:18])[0]
+    chunk_count = struct.unpack(">H", raw_header[18:20])[0]
+    payload_length = struct.unpack(">I", raw_header[20:24])[0]
+
+    if version != PROTOCOL_VERSION:
+        raise ValueError(f"unsupported protocol version: {version}")
+
+    if reserved != 0:
+        raise ValueError(f"reserved field is not zero: {reserved}")
+
+    if payload_length > 1024 * 1024:
+        raise ValueError(f"payload too large: {payload_length}")
+
+    payload = read_exact(port, payload_length) if payload_length else b""
+
+    return (
+        PacketHeader(
+            version=version,
+            packet_type=packet_type,
+            status=status,
+            frame_id=frame_id,
+            total_length=total_length,
+            chunk_index=chunk_index,
+            chunk_count=chunk_count,
+            payload_length=payload_length,
+        ),
+        payload,
+    )
 
 
-def show_or_save(jpeg: bytes, frame_id: int, save_dir: Path | None, no_display: bool) -> None:
+def decode_spi_header(raw: bytes) -> str:
+    if len(raw) != 16:
+        return f"SPI debug payload length={len(raw)}, expected=16"
+
+    magic = struct.unpack(">I", raw[0:4])[0]
+    sequence = struct.unpack(">I", raw[4:8])[0]
+    payload_length = struct.unpack(">I", raw[8:12])[0]
+    command = raw[12]
+    status = raw[13]
+    flags = raw[14]
+    reserved = raw[15]
+
+    return (
+        f"magic=0x{magic:08X} "
+        f"sequence={sequence} "
+        f"payloadLength={payload_length} "
+        f"command=0x{command:02X} "
+        f"status=0x{status:02X} "
+        f"flags=0x{flags:02X} "
+        f"reserved=0x{reserved:02X}"
+    )
+
+
+def xor_a5(data: bytes) -> bytes:
+    return bytes(value ^ 0xA5 for value in data)
+
+
+def display_or_save_frame(
+    frame_id: int,
+    encrypted_data: bytes,
+    save_dir: Optional[Path],
+    no_display: bool,
+) -> bool:
+    jpeg_data = xor_a5(encrypted_data)
+
+    if len(jpeg_data) < 4:
+        print(f"Frame {frame_id}: JPEG too short")
+        return False
+
+    if not (
+        jpeg_data.startswith(b"\xFF\xD8")
+        and jpeg_data.endswith(b"\xFF\xD9")
+    ):
+        print(
+            f"Frame {frame_id}: invalid JPEG markers "
+            f"start={jpeg_data[:2].hex()} "
+            f"end={jpeg_data[-2:].hex()}"
+        )
+        return False
+
     if save_dir is not None:
         save_dir.mkdir(parents=True, exist_ok=True)
-        path = save_dir / f"frame_{frame_id:010d}.jpg"
-        path.write_bytes(jpeg)
-        print(f"saved: {path}", flush=True)
+        filename = save_dir / f"frame_{frame_id:08d}.jpg"
+        filename.write_bytes(jpeg_data)
 
-    if no_display or cv2 is None or np is None:
-        return
+    if not no_display:
+        if cv2 is None or np is None:
+            print(
+                "OpenCV/Numpy not installed; "
+                "use --no-display or install them"
+            )
+            return True
 
-    image = cv2.imdecode(np.frombuffer(jpeg, dtype=np.uint8), cv2.IMREAD_COLOR)
-    if image is None:
-        print(f"frame={frame_id}: OpenCV decode failed", file=sys.stderr, flush=True)
-        return
-    cv2.imshow("ESP32 -> H753 -> UART", image)
-    cv2.waitKey(1)
+        image_array = np.frombuffer(jpeg_data, dtype=np.uint8)
+        image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+
+        if image is None:
+            print(f"Frame {frame_id}: cv2.imdecode failed")
+            return False
+
+        cv2.imshow("ESP32-S3 Camera", image)
+
+        if cv2.waitKey(1) & 0xFF == ord("q"):
+            raise KeyboardInterrupt
+
+    return True
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--port", required=True)
-    ap.add_argument("--baud", type=int, default=115200)
-    ap.add_argument("--save-dir", type=Path)
-    ap.add_argument("--no-display", action="store_true")
-    ap.add_argument("--clear-buffer", action="store_true", help="discard old serial bytes on startup")
-    args = ap.parse_args()
+    parser = argparse.ArgumentParser(
+        description="Receive CAM1 packets and performance data."
+    )
 
-    frames: dict[int, Frame] = {}
+    parser.add_argument("--port", required=True)
+    parser.add_argument("--baud", type=int, default=115200)
+    parser.add_argument("--save-dir", type=Path)
+    parser.add_argument("--no-display", action="store_true")
+    parser.add_argument("--quiet-packets", action="store_true")
+
+    args = parser.parse_args()
+
+    assemblies: Dict[int, FrameAssembly] = {}
     packet_count = 0
-    frame_count = 0
-    last_activity = time.monotonic()
+    completed_frames = 0
+    invalid_frames = 0
+    start_time = time.monotonic()
 
-    with serial.Serial(args.port, args.baud, timeout=1.0, write_timeout=1.0) as port:
-        if args.clear_buffer:
+    try:
+        with serial.Serial(
+            args.port,
+            args.baud,
+            timeout=1.0,
+            write_timeout=1.0,
+        ) as port:
             port.reset_input_buffer()
-        print(f"Opened {args.port} at {args.baud} baud", flush=True)
 
-        while True:
-            try:
-                find_magic(port)
-                rest = read_exact(port, HEADER_SIZE - 4)
-                fields = struct.unpack(HEADER_FORMAT, MAGIC + rest)
-                (_, version, packet_type, status, reserved,
-                 frame_id, total_length, chunk_index, chunk_count,
-                 payload_length) = fields
+            print(f"Opened {args.port} at {args.baud} baud")
+
+            while True:
+                try:
+                    header, payload = read_packet(port)
+                except TimeoutError as exc:
+                    print(exc)
+                    continue
+                except ValueError as exc:
+                    print(f"Packet parse error: {exc}")
+                    continue
 
                 packet_count += 1
-                last_activity = time.monotonic()
-                print(
-                    f"packet={packet_count} type={packet_type} status={status} "
-                    f"frame={frame_id} total={total_length} "
-                    f"chunk={chunk_index}/{chunk_count} payload={payload_length}",
-                    flush=True,
-                )
 
-                # Validate before trusting payload length.
-                if version != VERSION or reserved != 0:
-                    print("invalid header version/reserved; resync", file=sys.stderr, flush=True)
-                    continue
-                if total_length > MAX_FRAME_SIZE or payload_length > MAX_CHUNK_SIZE:
-                    print("invalid header length; resync", file=sys.stderr, flush=True)
-                    continue
-
-                payload = read_exact(port, payload_length) if payload_length else b""
-
-                if packet_type == PACKET_ERROR:
-                    frames.pop(frame_id, None)
+                if not args.quiet_packets:
                     print(
-                        f"ESP32 ERROR frame={frame_id}: "
-                        f"{STATUS_NAMES.get(status, hex(status))}",
-                        file=sys.stderr,
-                        flush=True,
+                        f"packet={packet_count} "
+                        f"type={header.packet_type} "
+                        f"status={header.status} "
+                        f"frame={header.frame_id} "
+                        f"total={header.total_length} "
+                        f"chunk={header.chunk_index}/{header.chunk_count} "
+                        f"payload={header.payload_length}"
+                    )
+
+                if header.packet_type == PACKET_ERROR:
+                    status_name = STATUS_NAMES.get(
+                        header.status,
+                        f"UNKNOWN_{header.status}",
+                    )
+
+                    phase_name = SPI_PHASE_NAMES.get(
+                        header.chunk_index,
+                        f"UNKNOWN_PHASE_{header.chunk_index}",
+                    )
+
+                    print(
+                        f"ESP32 ERROR frame={header.frame_id}: "
+                        f"{status_name}, "
+                        f"phase={header.chunk_index} ({phase_name})"
+                    )
+
+                    if payload:
+                        print(f"SPI raw header: {payload.hex(' ')}")
+                        print(f"SPI decoded: {decode_spi_header(payload)}")
+
+                    assemblies.pop(header.frame_id, None)
+                    continue
+
+                if header.packet_type == PACKET_PERFORMANCE:
+                    if len(payload) != 20:
+                        print(
+                            f"Invalid performance payload: "
+                            f"{len(payload)} bytes"
+                        )
+                        continue
+
+                    capture_us = struct.unpack(">I", payload[0:4])[0]
+                    spi_us = struct.unpack(">I", payload[4:8])[0]
+                    usb_us = struct.unpack(">I", payload[8:12])[0]
+                    total_us = struct.unpack(">I", payload[12:16])[0]
+                    jpeg_size = struct.unpack(">I", payload[16:20])[0]
+
+                    fps = (
+                        1_000_000.0 / total_us
+                        if total_us > 0
+                        else 0.0
+                    )
+
+                    print(
+                        f"PERF frame={header.frame_id} "
+                        f"JPEG={jpeg_size} "
+                        f"capture={capture_us / 1000.0:.2f}ms "
+                        f"SPI={spi_us / 1000.0:.2f}ms "
+                        f"USB={usb_us / 1000.0:.2f}ms "
+                        f"total={total_us / 1000.0:.2f}ms "
+                        f"FPS={fps:.2f}"
                     )
                     continue
 
-                if status != 0:
-                    print(f"nonzero packet status={status}", file=sys.stderr, flush=True)
-                    frames.pop(frame_id, None)
+                if header.packet_type == PACKET_DATA:
+                    if header.chunk_count == 0:
+                        print(f"Frame {header.frame_id}: chunk_count is zero")
+                        continue
+
+                    if header.chunk_index >= header.chunk_count:
+                        print(
+                            f"Frame {header.frame_id}: invalid chunk index "
+                            f"{header.chunk_index}/{header.chunk_count}"
+                        )
+                        continue
+
+                    assembly = assemblies.get(header.frame_id)
+
+                    if assembly is None:
+                        assembly = FrameAssembly(
+                            total_length=header.total_length,
+                            chunk_count=header.chunk_count,
+                            chunks={},
+                        )
+                        assemblies[header.frame_id] = assembly
+
+                    if (
+                        assembly.total_length != header.total_length
+                        or assembly.chunk_count != header.chunk_count
+                    ):
+                        print(f"Frame {header.frame_id}: inconsistent metadata")
+                        assemblies.pop(header.frame_id, None)
+                        continue
+
+                    assembly.chunks[header.chunk_index] = payload
                     continue
 
-                if packet_type == PACKET_DATA:
-                    if chunk_count == 0 or chunk_index >= chunk_count:
-                        print("invalid chunk metadata", file=sys.stderr, flush=True)
-                        continue
-                    frame = frames.get(frame_id)
-                    if frame is None:
-                        frame = Frame(total_length, chunk_count)
-                        frames[frame_id] = frame
-                    if frame.total_length != total_length or frame.chunk_count != chunk_count:
-                        print("frame metadata changed; restart frame", file=sys.stderr, flush=True)
-                        frame = Frame(total_length, chunk_count)
-                        frames[frame_id] = frame
-                    frame.chunks[chunk_index] = payload
-                    print(f"stored frame={frame_id}: {len(frame.chunks)}/{frame.chunk_count}", flush=True)
+                if header.packet_type == PACKET_FRAME_END:
+                    assembly = assemblies.pop(header.frame_id, None)
 
-                elif packet_type == PACKET_FRAME_END:
-                    frame = frames.pop(frame_id, None)
-                    if frame is None:
-                        print(f"FRAME_END without DATA for frame={frame_id}; waiting next frame", flush=True)
-                        continue
-                    missing = [i for i in range(frame.chunk_count) if i not in frame.chunks]
-                    if missing:
-                        print(f"frame={frame_id} missing chunks={missing}", file=sys.stderr, flush=True)
-                        continue
-                    encrypted = b"".join(frame.chunks[i] for i in range(frame.chunk_count))
-                    if len(encrypted) != frame.total_length:
+                    if assembly is None:
                         print(
-                            f"frame={frame_id} length mismatch expected={frame.total_length} got={len(encrypted)}",
-                            file=sys.stderr,
-                            flush=True,
+                            f"FRAME_END without DATA for frame={header.frame_id}"
                         )
                         continue
-                    jpeg = decode_jpeg(encrypted)
-                    if len(jpeg) < 4 or jpeg[:2] != b"\xff\xd8" or jpeg[-2:] != b"\xff\xd9":
+
+                    if len(assembly.chunks) != assembly.chunk_count:
                         print(
-                            f"frame={frame_id} invalid JPEG markers: "
-                            f"start={jpeg[:2].hex()} end={jpeg[-2:].hex()}",
-                            file=sys.stderr,
-                            flush=True,
+                            f"Frame {header.frame_id}: incomplete chunks "
+                            f"{len(assembly.chunks)}/{assembly.chunk_count}"
                         )
+                        invalid_frames += 1
                         continue
-                    frame_count += 1
-                    print(f"FRAME OK id={frame_id} bytes={len(jpeg)} completed={frame_count}", flush=True)
-                    show_or_save(jpeg, frame_id, args.save_dir, args.no_display)
-                else:
-                    print(f"unknown packet type={packet_type}", file=sys.stderr, flush=True)
 
-                # Remove abandoned frames.
-                now = time.monotonic()
-                for fid in list(frames):
-                    if now - frames[fid].created > 10:
-                        print(f"drop stale frame={fid}", file=sys.stderr, flush=True)
-                        del frames[fid]
+                    encrypted_data = b"".join(
+                        assembly.chunks[index]
+                        for index in range(assembly.chunk_count)
+                    )
 
-            except TimeoutError:
-                if time.monotonic() - last_activity >= 1:
-                    print("waiting for next CAM1 packet...", flush=True)
-                    last_activity = time.monotonic()
-            except KeyboardInterrupt:
-                break
-            except serial.SerialException as exc:
-                print(f"serial error: {exc}", file=sys.stderr)
-                return 1
+                    if len(encrypted_data) != assembly.total_length:
+                        print(
+                            f"Frame {header.frame_id}: length mismatch "
+                            f"expected={assembly.total_length} "
+                            f"actual={len(encrypted_data)}"
+                        )
+                        invalid_frames += 1
+                        continue
 
-    if cv2 is not None:
-        cv2.destroyAllWindows()
+                    if display_or_save_frame(
+                        header.frame_id,
+                        encrypted_data,
+                        args.save_dir,
+                        args.no_display,
+                    ):
+                        completed_frames += 1
+
+                        elapsed = max(
+                            time.monotonic() - start_time,
+                            0.001,
+                        )
+                        average_fps = completed_frames / elapsed
+
+                        print(
+                            f"FRAME OK id={header.frame_id} "
+                            f"bytes={len(encrypted_data)} "
+                            f"completed={completed_frames} "
+                            f"invalid={invalid_frames} "
+                            f"avgFPS={average_fps:.2f}"
+                        )
+                    else:
+                        invalid_frames += 1
+
+                    continue
+
+                print(f"Unknown packet type: {header.packet_type}")
+
+    except KeyboardInterrupt:
+        print("\nStopped")
+    finally:
+        if cv2 is not None:
+            cv2.destroyAllWindows()
+
     return 0
+
 
 if __name__ == "__main__":
     raise SystemExit(main())
