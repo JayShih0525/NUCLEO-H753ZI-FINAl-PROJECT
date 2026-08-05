@@ -9,3 +9,5 @@ python receive_camera.py \
 python receive_camera.py \
   --port /dev/cu.usbmodem1101 \
   --baud 115200
+
+python demo2.py --port /dev/cu.usbmodem1101 --baud 115200
