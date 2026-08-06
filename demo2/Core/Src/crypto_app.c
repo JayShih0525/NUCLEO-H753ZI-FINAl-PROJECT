@@ -24,6 +24,14 @@ static uint8_t g_aesKeyReady = 0U;
 static uint8_t g_streamNonce[AES_GCM_NONCE_BYTES];
 static uint8_t g_streamActive = 0U;
 
+// True once we've seen a LAST-flagged chunk for the current
+// frame. Lets a retried LAST chunk (same bytes resent after
+// a failure) overwrite at the same offset instead of being
+// appended again, and lets a failed encrypt attempt be
+// retried instead of permanently wedging the stream.
+static uint8_t g_lastChunkSeen = 0U;
+static uint32_t g_preLastLength = 0U;
+
 #define MAX_FRAME_PLAINTEXT (256U * 1024U) // size to your JPEG output; adjust for available SRAM
 
 static uint8_t g_frameBuffer[MAX_FRAME_PLAINTEXT];
@@ -33,6 +41,7 @@ void CryptoApp_Init(void)
 {
     g_aesKeyReady = 0U;
     g_streamActive = 0U;
+    g_lastChunkSeen = 0U;
 
     // Compile-time-ish sanity check: if your ML-KEM parameter
     // set ever changes and the shared secret size stops
@@ -52,13 +61,14 @@ uint8_t CryptoApp_EncryptChunk(
     if (!g_aesKeyReady)
     {
         *outputLength = 0U;
-        return SPI_STATUS_PROCESS_FAIL;
+        return SPI_STATUS_KEY_NOT_READY;
     }
 
     if (chunkFlags & SPI_CHUNK_FLAG_FIRST)
     {
         g_frameLength = 0U;
         g_streamActive = 1U;
+        g_lastChunkSeen = 0U;
 
         randombytes(g_streamNonce, AES_GCM_NONCE_BYTES);
     }
@@ -69,15 +79,42 @@ uint8_t CryptoApp_EncryptChunk(
         return SPI_STATUS_PROCESS_FAIL;
     }
 
-    if ((g_frameLength + inputLength) > MAX_FRAME_PLAINTEXT)
+    if (chunkFlags & SPI_CHUNK_FLAG_LAST)
     {
-        g_streamActive = 0U;
-        *outputLength = 0U;
-        return SPI_STATUS_PROCESS_FAIL;
-    }
+        // First time seeing the LAST chunk for this frame:
+        // remember where it starts. A retry of this same LAST
+        // chunk (chunkFlags identical, no FIRST) will reuse
+        // this same offset and overwrite rather than append -
+        // otherwise a retried final chunk would duplicate its
+        // bytes into the buffer.
+        if (!g_lastChunkSeen)
+        {
+            g_preLastLength = g_frameLength;
+            g_lastChunkSeen = 1U;
+        }
 
-    memcpy(&g_frameBuffer[g_frameLength], input, inputLength);
-    g_frameLength += inputLength;
+        if ((g_preLastLength + inputLength) > MAX_FRAME_PLAINTEXT)
+        {
+            g_streamActive = 0U;
+            *outputLength = 0U;
+            return SPI_STATUS_FRAME_TOO_LARGE;
+        }
+
+        memcpy(&g_frameBuffer[g_preLastLength], input, inputLength);
+        g_frameLength = g_preLastLength + inputLength;
+    }
+    else
+    {
+        if ((g_frameLength + inputLength) > MAX_FRAME_PLAINTEXT)
+        {
+            g_streamActive = 0U;
+            *outputLength = 0U;
+            return SPI_STATUS_FRAME_TOO_LARGE;
+        }
+
+        memcpy(&g_frameBuffer[g_frameLength], input, inputLength);
+        g_frameLength += inputLength;
+    }
 
     if (!(chunkFlags & SPI_CHUNK_FLAG_LAST))
     {
@@ -87,7 +124,7 @@ uint8_t CryptoApp_EncryptChunk(
         if (inputLength > outputCapacity)
         {
             *outputLength = 0U;
-            return SPI_STATUS_PROCESS_FAIL;
+            return SPI_STATUS_OUTPUT_TOO_SMALL;
         }
 
         memset(output, 0, inputLength);
@@ -99,9 +136,11 @@ uint8_t CryptoApp_EncryptChunk(
     // accumulated frame, then append nonce + tag.
     if ((g_frameLength + AES_GCM_NONCE_BYTES + AES_GCM_TAG_BYTES) > outputCapacity)
     {
+        // Unrecoverable regardless of retry - the frame simply
+        // doesn't fit in one SPI response. Safe to give up here.
         g_streamActive = 0U;
         *outputLength = 0U;
-        return SPI_STATUS_PROCESS_FAIL;
+        return SPI_STATUS_OUTPUT_TOO_SMALL;
     }
 
     uint8_t tag[AES_GCM_TAG_BYTES];
@@ -109,12 +148,14 @@ uint8_t CryptoApp_EncryptChunk(
     const uint8_t encryptStatus = AESGCM_Encrypt(
         g_streamNonce, g_frameBuffer, g_frameLength, output, tag);
 
-    g_streamActive = 0U;
-
     if (encryptStatus != AES_GCM_OK)
     {
+        // Do NOT clear g_streamActive here - leave the stream
+        // in a retryable state. A retried LAST chunk will
+        // overwrite the same bytes (see g_preLastLength above)
+        // and get a fresh attempt at AESGCM_Encrypt.
         *outputLength = 0U;
-        return SPI_STATUS_PROCESS_FAIL;
+        return SPI_STATUS_ENCRYPT_FAIL;
     }
 
     uint8_t *nonceOut = output + g_frameLength;
@@ -124,6 +165,9 @@ uint8_t CryptoApp_EncryptChunk(
     memcpy(tagOut, tag, AES_GCM_TAG_BYTES);
 
     *outputLength = g_frameLength + AES_GCM_NONCE_BYTES + AES_GCM_TAG_BYTES;
+
+    g_streamActive = 0U;
+    g_lastChunkSeen = 0U;
 
     return SPI_STATUS_OK;
 }

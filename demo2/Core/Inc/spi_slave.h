@@ -22,6 +22,13 @@
 #define SPI_STATUS_BAD_LENGTH   0xE2U
 #define SPI_STATUS_BAD_COMMAND  0xE3U
 #define SPI_STATUS_PROCESS_FAIL 0xE4U
+// Finer-grained PROCESS failure reasons, all still fall back
+// to SPI_STATUS_PROCESS_FAIL's general meaning ("this PROCESS
+// request failed") but let the PC tell them apart.
+#define SPI_STATUS_KEY_NOT_READY 0xE5U
+#define SPI_STATUS_FRAME_TOO_LARGE 0xE6U
+#define SPI_STATUS_OUTPUT_TOO_SMALL 0xE7U
+#define SPI_STATUS_ENCRYPT_FAIL 0xE8U
 
 // Chunk framing, packed into the header's `reserved` byte.
 // PING/KEM_* are single-shot: caller (ESP32) always sends

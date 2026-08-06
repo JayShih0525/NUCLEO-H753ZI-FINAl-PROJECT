@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# python demo2.py --port /dev/cu.usbmodem1101 --baud 1000000
 """
 demo2.py
 
@@ -50,6 +51,21 @@ STATUS_FRAME_INVALID = 0x02
 STATUS_SPI_FAILED = 0x03
 STATUS_LENGTH_ERROR = 0x04
 STATUS_OUTPUT_FAILED = 0x05
+
+# STM32-side statuses that ride inside an ERROR packet's
+# status byte or a failed CONTROL_RESPONSE (see spi_slave.h)
+SPI_LEVEL_STATUS_NAMES = {
+    0x10: "HEADER_OK",
+    0x80: "OK",
+    0xE1: "BAD_HEADER",
+    0xE2: "BAD_LENGTH",
+    0xE3: "BAD_COMMAND",
+    0xE4: "PROCESS_FAIL",
+    0xE5: "KEY_NOT_READY",
+    0xE6: "FRAME_TOO_LARGE",
+    0xE7: "OUTPUT_TOO_SMALL",
+    0xE8: "ENCRYPT_FAIL",
+}
 
 SPI_CMD_PING = 0x01
 SPI_CMD_PROCESS = 0x02
@@ -202,10 +218,11 @@ def _print_control_failure(label, response):
         magic, sequence, payload_len, command, spi_status, flags, reserved = \
             struct.unpack(">IIIBBBB", payload[:16])
         hex_bytes = " ".join(f"{b:02x}" for b in payload[:16])
+        status_name = SPI_LEVEL_STATUS_NAMES.get(spi_status, "?")
         print(f"  raw SPI debug header: {hex_bytes}", file=sys.stderr)
         print(f"  decoded: magic=0x{magic:08X} sequence={sequence} "
               f"payloadLength={payload_len} command=0x{command:02X} "
-              f"status=0x{spi_status:02X} flags=0x{flags:02X} "
+              f"status=0x{spi_status:02X} ({status_name}) flags=0x{flags:02X} "
               f"reserved=0x{reserved:02X}", file=sys.stderr)
     elif payload:
         hex_bytes = " ".join(f"{b:02x}" for b in payload)
@@ -430,6 +447,13 @@ def receive_loop(ser, aes_key, kem_pub):
             if pkt["payload"]:
                 hex_bytes = " ".join(f"{b:02x}" for b in pkt["payload"])
                 print(f"  raw debug payload: {hex_bytes}")
+
+                if len(pkt["payload"]) >= 16:
+                    _, _, _, command, spi_status, _, _ = struct.unpack(
+                        ">IIIBBBB", pkt["payload"][:16])
+                    status_name = SPI_LEVEL_STATUS_NAMES.get(spi_status, "?")
+                    print(f"  STM32 command=0x{command:02X} "
+                          f"status=0x{spi_status:02X} ({status_name})")
 
         elif pkt["type"] == PACKET_PERFORMANCE:
             # Speed info - kept exactly as before, now also
