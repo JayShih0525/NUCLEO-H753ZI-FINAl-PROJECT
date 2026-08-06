@@ -11,7 +11,8 @@
 // =====================================================
 
 #define TRANSPORT_SERIAL           Serial
-#define TRANSPORT_BAUD_RATE        115200U
+// #define TRANSPORT_BAUD_RATE        115200U
+#define TRANSPORT_BAUD_RATE        1000000U
 #define TRANSPORT_WRITE_TIMEOUT_MS 5000U
 
 bool Transport_Init(void)
