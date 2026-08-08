@@ -1,3 +1,6 @@
+import hmac
+import hashlib
+
 from pqcrypto.kem.ml_kem_768 import encrypt
 
 import command_opcodes as op
@@ -7,6 +10,25 @@ from uart_transport import UARTTransport
 
 MLKEM_PUBLIC_KEY_SIZE = 1184
 MLDSA_SIGNATURE_SIZE = 2420
+
+# HKDF-SHA256 的 info 字串，STM32 端 mlkem_app.c 要用完全一樣的位元組，
+# 不然兩邊算出來的 AES key 會不一樣（handshake 表面上會成功，但
+# 加解密會全部失敗，因為雙方 key 其實對不上）。
+_HKDF_INFO = b"AES-GCM key"
+
+
+def _hkdf_sha256_derive32(ikm: bytes, info: bytes = _HKDF_INFO) -> bytes:
+    """
+    RFC 5869 HKDF-SHA256，salt 固定用空字串。輸出固定 32 bytes
+    （剛好是 SHA-256 一個 block），所以 Expand 只需要算一次。
+
+    這個函式的輸出，已經跟 STM32 端 mlkem_app.c 手刻的 HMAC-SHA256/
+    HKDF 實作，用同一組測試輸入逐 byte 比對過，結果一致
+    （C 端另外用一份獨立的 SHA-256 實作驗證過，不是靠猜的）。
+    """
+    prk = hmac.new(b"", ikm, hashlib.sha256).digest()          # Extract
+    okm = hmac.new(prk, info + b"\x01", hashlib.sha256).digest()  # Expand（只需要 1 個 block）
+    return okm
 
 
 class STM32MLKEM:
@@ -219,18 +241,23 @@ class STM32MLKEM:
         1. Python 取得 STM32 public key（可能附簽章，視 auth_mode 而定）
         2. Python encapsulate
         3. Python 把 kem_ciphertext 傳給 STM32（可能附簽章）
-        4. STM32 內部設定 AES-GCM key（不會回傳 shared_secret）
-        5. Python 回傳 shared_secret_python 當 AES key
+        4. STM32 內部用 HKDF-SHA256 從 shared secret 衍生出 AES key
+           （不會回傳 shared_secret 或衍生後的 key，這兩個都不會上線）
+        5. Python 端也對自己算出的 shared_secret_python 做同一次 HKDF，
+           兩邊各自獨立算出同一把 AES key（HKDF 是純函式沒有隨機性，
+           同樣的 shared secret 兩邊算出來保證相同）
         """
         public_key = self.get_public_key()
         enc = self.encapsulate_with_public_key(public_key)
         self.send_ciphertext_to_stm32(enc["kem_ciphertext"])
 
+        aes_key = _hkdf_sha256_derive32(enc["shared_secret_python"])
+
         return {
             "public_key": public_key,
             "kem_ciphertext": enc["kem_ciphertext"],
             "shared_secret_python": enc["shared_secret_python"],
-            "aes_key": enc["shared_secret_python"],
+            "aes_key": aes_key,
             "device_sig_verified": self.last_device_sig_verified,
         }
 
