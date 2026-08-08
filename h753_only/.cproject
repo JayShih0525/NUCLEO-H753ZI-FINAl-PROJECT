@@ -95,10 +95,11 @@
 									<listOptionValue builtIn="false" value="../Drivers/STM32H7xx_HAL_Driver/Inc/Legacy"/>
 									<listOptionValue builtIn="false" value="../Drivers/CMSIS/Device/ST/STM32H7xx/Include"/>
 									<listOptionValue builtIn="false" value="../Drivers/CMSIS/Include"/>
-									<listOptionValue builtIn="false" value="../Core/myInc"/>
 									<listOptionValue builtIn="false" value="../Core/diliInc"/>
-									<listOptionValue builtIn="false" value="../Core/mbedtls/include"/>
 									<listOptionValue builtIn="false" value="../Core/mlkemInc"/>
+									<listOptionValue builtIn="false" value="../Core/mbedtls/include"/>
+									<listOptionValue builtIn="false" value="../Core/myInc"/>
+									<listOptionValue builtIn="false" value="../Core/mldsaInc"/>
 								</option>
 								<inputType id="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.input.c.2027040794" superClass="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.input.c"/>
 							</tool>
@@ -217,6 +218,7 @@
 									<listOptionValue builtIn="false" value="../Core/mlkemInc"/>
 									<listOptionValue builtIn="false" value="../Core/mbedtls/include"/>
 									<listOptionValue builtIn="false" value="../Core/myInc"/>
+									<listOptionValue builtIn="false" value="../Core/mldsaInc"/>
 								</option>
 								<inputType id="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.input.c.1497685930" superClass="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.input.c"/>
 							</tool>
