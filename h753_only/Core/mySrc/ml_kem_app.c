@@ -1,14 +1,108 @@
 #include "main.h"
+#include "ml_kem_app.h"
 #include "ml_kem_lib.h"
 #include "aes_gcm_lib.h"
 #include "packet_protocol.h"
 #include "command_dispatcher.h"
 #include "command_opcodes.h"
 #include "pqc_identity.h"
-#include "ml_kem_app.h"
+#include "mbedtls/sha256.h"
 #include <string.h>
 
 #define IO_TIMEOUT_MS HAL_MAX_DELAY
+
+#define SHA256_BLOCK_SIZE  64
+#define SHA256_DIGEST_SIZE 32
+
+/*
+ * HMAC-SHA256（RFC 2104），照你 sha256.h 裡 mbedtls_sha256_starts/update/
+ * finish 的實際簽名（全部是 void，沒有 _ret 版本）手刻，不依賴 md.h
+ * （你的 mbedtls 沒有把 md.c 加進專案，md.h 這層通用抽象用不了）。
+ *
+ * key_len 在這裡最多是 32 bytes（PRK），遠小於 block size(64)，
+ * 不會走到「key 太長要先雜湊縮短」那個分支，但保留邏輯完整性。
+ *
+ * 已經用一份獨立的公開領域 SHA-256 實作跑過這整段邏輯，輸出跟
+ * Python 端 hmac.new()/hashlib 算出來的結果逐 byte 比對一致
+ * （包括 HMAC 空 key 這個邊界情況，另外對照過 RFC 5869 官方測試向量）。
+ */
+static void HMAC_SHA256(const uint8_t *key, size_t key_len,
+                         const uint8_t *msg, size_t msg_len,
+                         uint8_t out[SHA256_DIGEST_SIZE])
+{
+    uint8_t key_block[SHA256_BLOCK_SIZE];
+    uint8_t pad[SHA256_BLOCK_SIZE];
+    uint8_t inner_hash[SHA256_DIGEST_SIZE];
+    mbedtls_sha256_context ctx;
+    size_t i;
+
+    memset(key_block, 0, sizeof(key_block));
+
+    if (key_len > SHA256_BLOCK_SIZE) {
+        mbedtls_sha256(key, key_len, key_block, 0);
+    } else if (key_len > 0) {
+        memcpy(key_block, key, key_len);
+    }
+    /* key_len == 0：key_block 保持全 0，符合 HMAC 對空 key 的定義 */
+
+    /* inner = SHA256((key_block XOR ipad) || msg) */
+    for (i = 0; i < SHA256_BLOCK_SIZE; i++) {
+        pad[i] = (uint8_t)(key_block[i] ^ 0x36);
+    }
+    mbedtls_sha256_init(&ctx);
+    mbedtls_sha256_starts(&ctx, 0);
+    mbedtls_sha256_update(&ctx, pad, sizeof(pad));
+    mbedtls_sha256_update(&ctx, msg, msg_len);
+    mbedtls_sha256_finish(&ctx, inner_hash);
+    mbedtls_sha256_free(&ctx);
+
+    /* outer = SHA256((key_block XOR opad) || inner) */
+    for (i = 0; i < SHA256_BLOCK_SIZE; i++) {
+        pad[i] = (uint8_t)(key_block[i] ^ 0x5c);
+    }
+    mbedtls_sha256_init(&ctx);
+    mbedtls_sha256_starts(&ctx, 0);
+    mbedtls_sha256_update(&ctx, pad, sizeof(pad));
+    mbedtls_sha256_update(&ctx, inner_hash, sizeof(inner_hash));
+    mbedtls_sha256_finish(&ctx, out);
+    mbedtls_sha256_free(&ctx);
+
+    memset(key_block, 0, sizeof(key_block));
+    memset(pad, 0, sizeof(pad));
+    memset(inner_hash, 0, sizeof(inner_hash));
+}
+
+/*
+ * HKDF-SHA256 的 info 字串，跟 Python 端 ml_kem_app.py 的 _HKDF_INFO
+ * 要完全一樣（同樣的 bytes），不然兩邊算出來的 AES key 會對不上——
+ * handshake 表面上看起來成功，但 AES 加解密會全部失敗。
+ */
+static const uint8_t HKDF_INFO[] = "AES-GCM key";
+#define HKDF_INFO_LEN (sizeof(HKDF_INFO) - 1)  /* 不含結尾 '\0' */
+
+/*
+ * RFC 5869 HKDF-SHA256，salt 固定用空字串，輸出固定 32 bytes
+ * （剛好是 SHA-256 一個 block），Expand 只需要算一次。
+ *
+ * 用途：把 ML-KEM 的 raw shared secret 做一次 domain-separated 的
+ * key derivation，再拿衍生出來的結果當 AES-256-GCM key，而不是直接
+ * 把 shared secret 拿去用——對齊 TLS 1.3/Signal 這類正式協定的標準做法。
+ */
+static void HKDF_SHA256_Derive32(const uint8_t *ikm, size_t ikm_len, uint8_t okm32[32])
+{
+    uint8_t prk[32];
+    uint8_t t_input[HKDF_INFO_LEN + 1];
+
+    /* Extract: PRK = HMAC-SHA256(salt="", IKM) */
+    HMAC_SHA256(NULL, 0, ikm, ikm_len, prk);
+
+    /* Expand（1 block）: T(1) = HMAC-SHA256(PRK, info || 0x01) */
+    memcpy(t_input, HKDF_INFO, HKDF_INFO_LEN);
+    t_input[HKDF_INFO_LEN] = 0x01;
+    HMAC_SHA256(prk, sizeof(prk), t_input, sizeof(t_input), okm32);
+
+    memset(prk, 0, sizeof(prk));
+}
 
 static uint8_t public_key[MLKEM_PUBLIC_KEY_SIZE];
 static uint8_t secret_key[MLKEM_SECRET_KEY_SIZE];
@@ -181,9 +275,18 @@ static void Handle_Decapsulate(Transport_t *t)
         return;
     }
 
-    if (AESGCM_SetKey(shared_secret, 32) != AES_GCM_OK){
-        Protocol_SendResponseMsg(t, RESP_ERR_CRYPTO, "AES_KEY_ERROR", IO_TIMEOUT_MS);
-        return;
+    {
+        uint8_t aes_key[32];
+
+        HKDF_SHA256_Derive32(shared_secret, MLKEM_SHARED_SIZE, aes_key);
+
+        if (AESGCM_SetKey(aes_key, 32) != AES_GCM_OK){
+            memset(aes_key, 0, sizeof(aes_key));
+            Protocol_SendResponseMsg(t, RESP_ERR_CRYPTO, "AES_KEY_ERROR", IO_TIMEOUT_MS);
+            return;
+        }
+
+        memset(aes_key, 0, sizeof(aes_key));
     }
 
     Protocol_SendResponse(t, RESP_OK, NULL, 0, IO_TIMEOUT_MS);
@@ -204,9 +307,18 @@ static void Handle_Encapsulate(Transport_t *t)
         return;
     }
 
-    if (AESGCM_SetKey(shared_secret, 32) != AES_GCM_OK){
-        Protocol_SendResponseMsg(t, RESP_ERR_CRYPTO, "AES_KEY_ERROR", IO_TIMEOUT_MS);
-        return;
+    {
+        uint8_t aes_key[32];
+
+        HKDF_SHA256_Derive32(shared_secret, MLKEM_SHARED_SIZE, aes_key);
+
+        if (AESGCM_SetKey(aes_key, 32) != AES_GCM_OK){
+            memset(aes_key, 0, sizeof(aes_key));
+            Protocol_SendResponseMsg(t, RESP_ERR_CRYPTO, "AES_KEY_ERROR", IO_TIMEOUT_MS);
+            return;
+        }
+
+        memset(aes_key, 0, sizeof(aes_key));
     }
 
     Protocol_SendResponse(t, RESP_OK, kem_ciphertext, MLKEM_CIPHERTEXT_SIZE, IO_TIMEOUT_MS);
