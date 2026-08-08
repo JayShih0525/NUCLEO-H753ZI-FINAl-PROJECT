@@ -3,10 +3,10 @@
 #include "transport_uart.h"
 #include "packet_protocol.h"
 #include "command_dispatcher.h"
-#include "randombytes.h"
-#include "aes_gcm_app.h"
 #include "ml_dsa_app.h"
 #include "ml_kem_app.h"
+#include "aes_gcm_app.h"
+#include "randombytes.h"
 
 #include <stdint.h>
 
@@ -27,7 +27,7 @@ int main(void)
      * 換成 TransportSPI_Init(&transport, &hspi1) 之類的呼叫即可，
      * 下面全部（Dispatcher / *_App_Init / while 迴圈）都不需要動。
      */
-    TransportUART_Init(&transport, &huart3, 4000000);
+    TransportUART_Init(&transport, &huart3, 4500000);
 
     Random_Init();
     transport.flush(&transport);
