@@ -1,11 +1,11 @@
 #include "main.h"
-#include "mlkem_app.h"
 #include "ml_kem_lib.h"
 #include "aes_gcm_lib.h"
 #include "packet_protocol.h"
 #include "command_dispatcher.h"
 #include "command_opcodes.h"
 #include "pqc_identity.h"
+#include "ml_kem_app.h"
 #include <string.h>
 
 #define IO_TIMEOUT_MS HAL_MAX_DELAY

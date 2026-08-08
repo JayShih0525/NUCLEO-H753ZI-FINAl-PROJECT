@@ -7,7 +7,7 @@ import numpy as np
 from uart_transport import UARTTransport
 from ml_kem_app import STM32MLKEM
 from aes_gcm_app import STM32AESGCM
-from mldsa_app import STM32MLDSA
+from ml_dsa_app import STM32MLDSA
 from host_identity import HostIdentity
 import command_opcodes as op
 from url_screen_capture import URLScreenCapture

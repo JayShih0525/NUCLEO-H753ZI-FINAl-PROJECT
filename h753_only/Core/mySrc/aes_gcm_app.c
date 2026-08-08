@@ -1,9 +1,9 @@
 #include "main.h"
-#include "aesgcm_app.h"
 #include "aes_gcm_lib.h"
 #include "packet_protocol.h"
 #include "command_dispatcher.h"
 #include "command_opcodes.h"
+#include "aes_gcm_app.h"
 #include <string.h>
 
 #define IO_TIMEOUT_MS HAL_MAX_DELAY

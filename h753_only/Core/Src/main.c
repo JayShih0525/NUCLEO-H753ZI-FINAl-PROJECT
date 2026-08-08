@@ -3,10 +3,10 @@
 #include "transport_uart.h"
 #include "packet_protocol.h"
 #include "command_dispatcher.h"
-#include "mldsa_app.h"
-#include "mlkem_app.h"
-#include "aesgcm_app.h"
 #include "randombytes.h"
+#include "aes_gcm_app.h"
+#include "ml_dsa_app.h"
+#include "ml_kem_app.h"
 
 #include <stdint.h>
 

@@ -1,9 +1,9 @@
 #include "main.h"
-#include "mldsa_app.h"
 #include "packet_protocol.h"
 #include "command_dispatcher.h"
 #include "command_opcodes.h"
 #include "pqc_identity.h"
+#include "ml_dsa_app.h"
 #include <string.h>
 #include <stdio.h>
 
