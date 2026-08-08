@@ -6,7 +6,7 @@
 #include "dilithium_poly.h"
 #include "randombytes.h"
 #include "dilithium_symmetric.h"
-#include "fips202.h"
+#include "dilithium_fips202.h"
 
 /*************************************************
 * Name:        crypto_sign_keypair

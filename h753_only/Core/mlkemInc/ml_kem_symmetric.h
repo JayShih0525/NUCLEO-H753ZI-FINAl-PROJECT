@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include "ml_kem_params.h"
 
-#include "fips202.h"
+#include "ml_kem_fips202.h"
 
 typedef keccak_state xof_state;
 

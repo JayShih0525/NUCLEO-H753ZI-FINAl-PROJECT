@@ -3,7 +3,7 @@
 #include <string.h>
 #include "ml_kem_params.h"
 #include "ml_kem_symmetric.h"
-#include "fips202.h"
+#include "ml_kem_fips202.h"
 
 /*************************************************
 * Name:        kyber_shake128_absorb

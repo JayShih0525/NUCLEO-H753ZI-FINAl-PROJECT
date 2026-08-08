@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "dilithium_params.h"
 
-#include "fips202.h"
+#include "dilithium_fips202.h"
 
 typedef keccak_state stream128_state;
 typedef keccak_state stream256_state;

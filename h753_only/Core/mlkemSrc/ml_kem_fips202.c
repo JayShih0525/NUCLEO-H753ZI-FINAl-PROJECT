@@ -5,7 +5,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include "fips202.h"
+#include "ml_kem_fips202.h"
 
 #define NROUNDS 24
 #define ROL(a, offset) ((a << offset) ^ (a >> (64-offset)))
@@ -45,7 +45,7 @@ static void store64(uint8_t x[8], uint64_t u) {
 }
 
 /* Keccak round constants */
-const uint64_t KeccakF_RoundConstants[NROUNDS] = {
+static const uint64_t KeccakF_RoundConstants[NROUNDS] = {
   (uint64_t)0x0000000000000001ULL,
   (uint64_t)0x0000000000008082ULL,
   (uint64_t)0x800000000000808aULL,
