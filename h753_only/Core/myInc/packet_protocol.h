@@ -2,6 +2,7 @@
 #define PACKET_PROTOCOL_H
 
 #include "transport.h"
+#include "pqc_identity.h"
 #include <stdint.h>
 
 /*

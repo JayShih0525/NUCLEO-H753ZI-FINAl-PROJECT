@@ -7,7 +7,9 @@ import numpy as np
 from uart_transport import UARTTransport
 from ml_kem_app import STM32MLKEM
 from aes_gcm_app import STM32AESGCM
-from dilithium_app import STM32Dilithium
+from mldsa_app import STM32MLDSA
+from host_identity import HostIdentity
+import command_opcodes as op
 from url_screen_capture import URLScreenCapture
 
 # ============================================================
@@ -25,7 +27,7 @@ AES_GCM_APP_MAX_SIZE = 131072
 # 這是「等 STM32 回應」的預設 timeout，不是輪詢間隔。
 # 拿掉了舊版那個 0.01s —— 那是舊協定非阻塞輪詢用的極短值，
 # 直接套在新版阻塞式 read_exact() 上會導致 STM32 還沒算完
-# （例如產生 Dilithium/ML-KEM keypair）就先 timeout。
+# （例如產生 ML-DSA/ML-KEM keypair）就先 timeout。
 TIMEOUT = 5.0
 
 # 這是實際送去 STM32 加密的圖片大小
@@ -65,13 +67,34 @@ REKEY_EVERY_N_FRAMES = 20
 # 每次 ML-KEM rekey 失敗時的重試次數
 KEM_REKEY_RETRY = 3
 
-# 是否對每一張加密後的 frame 做 Dilithium 簽章 + 驗章（demo 用，會增加延遲）。
+# 是否對每一張加密後的 frame 做 ML-DSA 簽章 + 驗章（demo 用，會增加延遲）。
 # 簽的內容是 nonce + ciphertext + tag，模擬「對密文做完整性/來源驗證」。
-DILITHIUM_SIGN_ENABLED = False
+MLDSA_SIGN_ENABLED = False
 
 # 是否在 Python 端立刻請 STM32 驗證剛簽好的章（round-trip 自我檢查）。
 # 關掉的話還是會簽章，只是不驗證，可以省一點延遲。
-DILITHIUM_VERIFY_ENABLED = True
+MLDSA_VERIFY_ENABLED = True
+
+# ------------------------------------------------------------
+# ML-KEM handshake 雙向簽章認證
+# ------------------------------------------------------------
+
+# ML-KEM 本身只保證雙方算出同一把 shared secret，不保證「這把 public
+# key / ciphertext 真的來自你信任的那一方」——用 ML-DSA-44 簽章補上
+# 來源認證，防止有人在 UART 線路上偽造假的 public key 或 ciphertext。
+#
+#   op.KEM_AUTH_NONE          不做任何簽章認證（原本的行為）
+#   op.KEM_AUTH_DEVICE_SIGNS  只驗「STM32 這把 ML-KEM public key
+#                             真的是它自己簽的」（Python 本地驗證，
+#                             不需要額外的 UART round-trip）
+#   op.KEM_AUTH_HOST_SIGNS    只驗「這個 kem_ciphertext 真的是 host
+#                             簽的」（STM32 端驗證，驗證失敗就拒絕
+#                             decapsulate、不設定新的 AES key）
+#   op.KEM_AUTH_BOTH          兩個方向都做
+#
+# 每次 handshake（開機第一次 + 週期性 rekey）都會套用同一個模式，
+# 不是只做一次。
+KEM_AUTH_MODE = op.KEM_AUTH_BOTH
 
 
 # ============================================================
@@ -254,12 +277,12 @@ def make_encrypted_status_image(state):
         sign_elapsed = state.last_sign_elapsed
         verify_ok = state.last_verify_ok
 
-        dilithium_public_key_len = state.dilithium_public_key_len
-        dilithium_sign_total = state.dilithium_sign_total
-        dilithium_verify_ok_total = state.dilithium_verify_ok_total
-        dilithium_verify_fail_total = state.dilithium_verify_fail_total
-        dilithium_sign_enabled = state.dilithium_sign_enabled
-        dilithium_verify_enabled = state.dilithium_verify_enabled
+        mldsa_public_key_len = state.mldsa_public_key_len
+        mldsa_sign_total = state.mldsa_sign_total
+        mldsa_verify_ok_total = state.mldsa_verify_ok_total
+        mldsa_verify_fail_total = state.mldsa_verify_fail_total
+        mldsa_sign_enabled = state.mldsa_sign_enabled
+        mldsa_verify_enabled = state.mldsa_verify_enabled
 
         mlkem_public_key_len = state.mlkem_public_key_len
         mlkem_ciphertext_len = state.mlkem_ciphertext_len
@@ -268,7 +291,7 @@ def make_encrypted_status_image(state):
         aes_key_hex = state.aes_key_hex
         mlkem_public_key_hex = state.mlkem_public_key_hex
         mlkem_shared_secret_hex = state.mlkem_shared_secret_hex
-        dilithium_public_key_hex = state.dilithium_public_key_hex
+        mldsa_public_key_hex = state.mldsa_public_key_hex
         last_signature_hex = state.last_signature_hex
 
         kem_rekey_count = state.kem_rekey_count
@@ -306,7 +329,7 @@ def make_encrypted_status_image(state):
 
     put_text(
         img,
-        "STM32 PQC Live Pipeline: ML-KEM-768 + AES-256-GCM + Dilithium2",
+        "STM32 PQC Live Pipeline: ML-KEM-768 + AES-256-GCM + ML-DSA-44",
         40,
         70,
         scale=1.05,
@@ -408,48 +431,55 @@ def make_encrypted_status_image(state):
     next_rekey_str = f"{next_rekey_in} frame(s)" if next_rekey_in is not None else "disabled"
     put_value(img, "Next rekey in", next_rekey_str, kem_label_x, 1105, kem_value_x, kem_max_w)
 
+    _kem_auth_short = {
+        op.KEM_AUTH_NONE: "no auth",
+        op.KEM_AUTH_DEVICE_SIGNS: "device signs pubkey",
+        op.KEM_AUTH_HOST_SIGNS: "host signs ciphertext",
+        op.KEM_AUTH_BOTH: "mutual auth (both directions)",
+    }.get(KEM_AUTH_MODE, str(KEM_AUTH_MODE))
+
     kem_desc = (
-        f"Every {REKEY_EVERY_N_FRAMES} frame(s): STM32 generates a new KEM keypair, "
-        "Python re-encapsulates a fresh AES-256 key."
+        f"Every {REKEY_EVERY_N_FRAMES} frame(s): new KEM keypair + fresh AES-256 key. "
+        f"Auth: {_kem_auth_short}."
         if REKEY_EVERY_N_FRAMES > 0
-        else "Periodic rekey disabled - AES key set once at startup only."
+        else f"Periodic rekey disabled. Auth: {_kem_auth_short}."
     )
     put_text_fit(img, kem_desc, kem_label_x, 1160, p5[2] - kem_label_x - 20, scale=0.5, thickness=1, color=(190, 190, 190))
 
     # ========================================================
-    # Panel 6: Dilithium2 (digital signature) - 同樣每欄位一行
+    # Panel 6: ML-DSA-44 (digital signature) - 同樣每欄位一行
     # ========================================================
 
     p6 = (920, 830, 1760, 1200)
-    draw_panel(img, *p6, "Dilithium2 (Digital Signature)")
+    draw_panel(img, *p6, "ML-DSA-44 (Digital Signature)")
 
-    dil_label_x = p6[0] + 30
-    dil_value_x = p6[0] + 280
-    dil_max_w = p6[2] - dil_value_x - 20
+    mldsa_label_x = p6[0] + 30
+    mldsa_value_x = p6[0] + 280
+    mldsa_max_w = p6[2] - mldsa_value_x - 20
 
-    sign_status = "ON" if dilithium_sign_enabled else "OFF"
-    verify_status = "ON" if dilithium_verify_enabled else "OFF"
+    sign_status = "ON" if mldsa_sign_enabled else "OFF"
+    verify_status = "ON" if mldsa_verify_enabled else "OFF"
 
-    put_value(img, "Algorithm", "Dilithium2", dil_label_x, 905, dil_value_x, dil_max_w)
-    put_value(img, "Sign / Verify enabled", f"{sign_status} / {verify_status}", dil_label_x, 945, dil_value_x, dil_max_w)
-    put_value(img, "Public key size", f"{dilithium_public_key_len:,} bytes", dil_label_x, 985, dil_value_x, dil_max_w)
-    put_value(img, "Last signature size", f"{sig_len:,} bytes", dil_label_x, 1025, dil_value_x, dil_max_w)
-    put_value(img, "Total signed", f"{dilithium_sign_total:,}", dil_label_x, 1065, dil_value_x, dil_max_w)
+    put_value(img, "Algorithm", "ML-DSA-44", mldsa_label_x, 905, mldsa_value_x, mldsa_max_w)
+    put_value(img, "Sign / Verify enabled", f"{sign_status} / {verify_status}", mldsa_label_x, 945, mldsa_value_x, mldsa_max_w)
+    put_value(img, "Public key size", f"{mldsa_public_key_len:,} bytes", mldsa_label_x, 985, mldsa_value_x, mldsa_max_w)
+    put_value(img, "Last signature size", f"{sig_len:,} bytes", mldsa_label_x, 1025, mldsa_value_x, mldsa_max_w)
+    put_value(img, "Total signed", f"{mldsa_sign_total:,}", mldsa_label_x, 1065, mldsa_value_x, mldsa_max_w)
     put_value(
         img,
         "Verify OK : FAIL",
-        f"{dilithium_verify_ok_total:,} : {dilithium_verify_fail_total:,}",
-        dil_label_x,
+        f"{mldsa_verify_ok_total:,} : {mldsa_verify_fail_total:,}",
+        mldsa_label_x,
         1105,
-        dil_value_x,
-        dil_max_w,
+        mldsa_value_x,
+        mldsa_max_w,
     )
 
     dil_desc = (
         f"Last sign+verify: {sign_elapsed:.3f}s, result: {verify_str}. "
         "Signs a SHA-256 digest of nonce+ciphertext+tag, not the raw photo."
     )
-    put_text_fit(img, dil_desc, dil_label_x, 1160, p6[2] - dil_label_x - 20, scale=0.5, thickness=1, color=(190, 190, 190))
+    put_text_fit(img, dil_desc, mldsa_label_x, 1160, p6[2] - mldsa_label_x - 20, scale=0.5, thickness=1, color=(190, 190, 190))
 
     # ========================================================
     # Panel 7: Key Material (demo/education only)
@@ -474,10 +504,10 @@ def make_encrypted_status_image(state):
     put_small_text(img, "ML-KEM Secret Key", col2_x, 1375)
     put_text_fit(img, "never leaves STM32 - not available on host by design", col2_x, 1405, col_max_w, scale=0.6, thickness=1)
 
-    put_small_text(img, "Dilithium2 Public Key (preview)", col1_x, 1445)
-    put_text_fit(img, dilithium_public_key_hex, col1_x, 1475, col_max_w, scale=0.6, thickness=1)
+    put_small_text(img, "ML-DSA-44 Public Key (preview)", col1_x, 1445)
+    put_text_fit(img, mldsa_public_key_hex, col1_x, 1475, col_max_w, scale=0.6, thickness=1)
 
-    put_small_text(img, "Dilithium2 Last Signature (preview)", col2_x, 1445)
+    put_small_text(img, "ML-DSA-44 Last Signature (preview)", col2_x, 1445)
     put_text_fit(img, last_signature_hex, col2_x, 1475, col_max_w, scale=0.6, thickness=1)
 
     # ========================================================
@@ -566,19 +596,19 @@ class SharedFrameState:
 
         self.last_status = "INIT"
 
-        # Dilithium 簽章統計（最近一次）
+        # ML-DSA 簽章統計（最近一次）
         self.last_sig_len = 0
         self.last_sign_elapsed = 0.0
         self.last_verify_ok = None  # None = 還沒簽過 / 沒開驗證
 
-        # Dilithium 簽章統計（累積總數，讓人看得出「這個 session 裡
+        # ML-DSA 簽章統計（累積總數，讓人看得出「這個 session 裡
         # 到目前為止總共做了幾次簽章/驗章」，不是只看瞬間值）
-        self.dilithium_public_key_len = 0
-        self.dilithium_sign_total = 0
-        self.dilithium_verify_ok_total = 0
-        self.dilithium_verify_fail_total = 0
-        self.dilithium_sign_enabled = False
-        self.dilithium_verify_enabled = False
+        self.mldsa_public_key_len = 0
+        self.mldsa_sign_total = 0
+        self.mldsa_verify_ok_total = 0
+        self.mldsa_verify_fail_total = 0
+        self.mldsa_sign_enabled = False
+        self.mldsa_verify_enabled = False
 
         # ML-KEM 資訊（目前這把 key 的大小、週期性 rekey 統計）
         self.mlkem_public_key_len = 0
@@ -591,7 +621,7 @@ class SharedFrameState:
         self.aes_key_hex = "None"
         self.mlkem_public_key_hex = "None"
         self.mlkem_shared_secret_hex = "None"
-        self.dilithium_public_key_hex = "None"
+        self.mldsa_public_key_hex = "None"
         self.last_signature_hex = "None"
 
         # 可以即時調整的 JPEG quality
@@ -673,7 +703,7 @@ def capture_display_thread(screen: URLScreenCapture, state: SharedFrameState):
 def encrypt_decrypt_thread(
     aes: STM32AESGCM,
     kem: STM32MLKEM,
-    dilithium: STM32Dilithium,
+    mldsa: STM32MLDSA,
     state: SharedFrameState,
     gap: float,
     rekey_every_n_frames: int,
@@ -684,7 +714,7 @@ def encrypt_decrypt_thread(
     2. 每處理 rekey_every_n_frames 張照片，就重新做一次 ML-KEM handshake
        換一把新的 AES key（設 0 停用）
     3. 傳給 STM32 AES-GCM encrypt
-    4. （可選）請 STM32 用 Dilithium 對 nonce+ciphertext+tag 簽章，並在本地
+    4. （可選）請 STM32 用 ML-DSA 對 nonce+ciphertext+tag 簽章，並在本地
        立刻請 STM32 驗章一次
     5. Python local decrypt
     6. 更新狀態畫面和 decrypted frame
@@ -694,20 +724,20 @@ def encrypt_decrypt_thread(
 
     last_encrypt_time = 0.0
 
-    # 一開始就把 ML-KEM / Dilithium 的基本資訊寫進 state，讓 dashboard
+    # 一開始就把 ML-KEM / ML-DSA 的基本資訊寫進 state，讓 dashboard
     # 從第一張照片開始就能顯示這些數字，不用等到第一次 rekey 或簽章。
     with state.lock:
         state.mlkem_public_key_len = len(kem.public_key) if kem.public_key else 0
         state.mlkem_ciphertext_len = len(kem.kem_ciphertext) if kem.kem_ciphertext else 0
         state.mlkem_shared_secret_len = len(kem.shared_secret_python) if kem.shared_secret_python else 0
-        state.dilithium_public_key_len = len(dilithium.public_key) if dilithium.public_key else 0
-        state.dilithium_sign_enabled = DILITHIUM_SIGN_ENABLED
-        state.dilithium_verify_enabled = DILITHIUM_VERIFY_ENABLED
+        state.mldsa_public_key_len = len(mldsa.public_key) if mldsa.public_key else 0
+        state.mldsa_sign_enabled = MLDSA_SIGN_ENABLED
+        state.mldsa_verify_enabled = MLDSA_VERIFY_ENABLED
 
         state.aes_key_hex = hex_preview(aes.key)
         state.mlkem_public_key_hex = hex_preview(kem.public_key)
         state.mlkem_shared_secret_hex = hex_preview(kem.shared_secret_python)
-        state.dilithium_public_key_hex = hex_preview(dilithium.public_key)
+        state.mldsa_public_key_hex = hex_preview(mldsa.public_key)
 
     try:
         while not state.stop:
@@ -817,12 +847,12 @@ def encrypt_decrypt_thread(
                 decrypted_frame = jpg_bytes_to_frame(result["decrypted"])
 
                 # ----------------------------------------------
-                # Dilithium 簽章（+ 可選的本地驗章 round-trip）
+                # ML-DSA 簽章（+ 可選的本地驗章 round-trip）
                 #
                 # 注意：這裡簽的是 nonce+ciphertext+tag 的 SHA-256 hash
                 # （固定 32 bytes），不是原始資料本身。
                 #
-                # 原因：STM32 韌體 dilithium_app.c 的 msg_buffer 只有
+                # 原因：STM32 韌體 mldsa_app.c 的 msg_buffer 只有
                 # 1024 bytes，一張照片的 ciphertext 隨便就超過這個大小
                 # （這裡這張是 5427 bytes）。如果直接簽整包密文，STM32
                 # 會在收到「長度超過 buffer」時直接拒收，但 Python 這邊
@@ -835,7 +865,7 @@ def encrypt_decrypt_thread(
                 sign_elapsed = 0.0
                 verify_ok = None
 
-                if DILITHIUM_SIGN_ENABLED:
+                if MLDSA_SIGN_ENABLED:
                     try:
                         sign_start = time.perf_counter()
 
@@ -843,31 +873,31 @@ def encrypt_decrypt_thread(
                             result["nonce"] + result["ciphertext"] + result["tag"]
                         ).digest()
 
-                        signature = dilithium.sign(digest)
+                        signature = mldsa.sign(digest)
                         sig_len = len(signature)
-                        if DILITHIUM_VERIFY_ENABLED:
-                            verify_ok = dilithium.verify(signature, digest)
+                        if MLDSA_VERIFY_ENABLED:
+                            verify_ok = mldsa.verify(signature, digest)
 
                         sign_elapsed = time.perf_counter() - sign_start
 
                         with state.lock:
-                            state.dilithium_sign_total += 1
+                            state.mldsa_sign_total += 1
                             state.last_signature_hex = hex_preview(signature)
 
-                            if DILITHIUM_VERIFY_ENABLED:
+                            if MLDSA_VERIFY_ENABLED:
                                 if verify_ok:
-                                    state.dilithium_verify_ok_total += 1
+                                    state.mldsa_verify_ok_total += 1
                                 else:
-                                    state.dilithium_verify_fail_total += 1
+                                    state.mldsa_verify_fail_total += 1
                                     state.err_count += 1
-                                    state.last_status = "Dilithium verify FAILED"
+                                    state.last_status = "ML-DSA verify FAILED"
 
                     except Exception as e:
                         with state.lock:
                             state.err_count += 1
-                            state.last_status = f"Dilithium error: {e}"
+                            state.last_status = f"ML-DSA error: {e}"
 
-                        print("Dilithium sign/verify error:", e)
+                        print("ML-DSA sign/verify error:", e)
 
                 with state.lock:
                     state.decrypted_frame = decrypted_frame
@@ -885,7 +915,7 @@ def encrypt_decrypt_thread(
                     state.last_sign_elapsed = sign_elapsed
                     state.last_verify_ok = verify_ok
 
-                    if state.last_status not in ("Dilithium verify FAILED",):
+                    if state.last_status not in ("ML-DSA verify FAILED",):
                         state.last_status = "OK"
 
                     ok_count = state.ok_count
@@ -1021,7 +1051,7 @@ def encrypted_decrypted_display_loop(state: SharedFrameState):
 def live_three_windows_threaded(
     aes: STM32AESGCM,
     kem: STM32MLKEM,
-    dilithium: STM32Dilithium,
+    mldsa: STM32MLDSA,
     url: str,
 ):
     """
@@ -1049,7 +1079,7 @@ def live_three_windows_threaded(
 
     encrypt_thread = threading.Thread(
         target=encrypt_decrypt_thread,
-        args=(aes, kem, dilithium, state, ENCRYPT_GAP, REKEY_EVERY_N_FRAMES),
+        args=(aes, kem, mldsa, state, ENCRYPT_GAP, REKEY_EVERY_N_FRAMES),
         daemon=True,
     )
 
@@ -1113,18 +1143,44 @@ try:
     print("STM32 boot OK:", boot_line)
     print("\n")
 
-    # 2. Dilithium：先確保 STM32 上有一組簽章 key，並抓 public key 起來
+    # 2. ML-DSA：先確保 STM32 上有一組簽章 key，並抓 public key 起來
     #    （之後如果要在 Python 端本地驗章，可以用這把 public key）
-    dilithium = STM32Dilithium(uart)
-    dilithium.clear()
-    dilithium.rekey()
-    dilithium_pk = dilithium.get_public_key()
-    print("Dilithium public_key len:", len(dilithium_pk))
+    mldsa = STM32MLDSA(uart)
+    mldsa.clear()
+    mldsa.rekey()
+    mldsa_pk = mldsa.get_public_key()
+    print("ML-DSA public_key len:", len(mldsa_pk))
     print("\n")
 
-    # 3. ML-KEM handshake
+    # 3. ML-KEM handshake（可選：雙向簽章認證）
     kem = STM32MLKEM(uart)
+
+    host_identity = None
+    if KEM_AUTH_MODE in (op.KEM_AUTH_HOST_SIGNS, op.KEM_AUTH_BOTH):
+        print("產生 host 自己的 ML-DSA-44 keypair（用來對 kem_ciphertext 簽章）...")
+        host_identity = HostIdentity()
+        print("host public_key len:", len(host_identity.public_key))
+
+    auth_mode_names = {
+        op.KEM_AUTH_NONE: "NONE（不驗證）",
+        op.KEM_AUTH_DEVICE_SIGNS: "DEVICE_SIGNS（驗證 STM32 簽的 public key）",
+        op.KEM_AUTH_HOST_SIGNS: "HOST_SIGNS（STM32 驗證 host 簽的 ciphertext）",
+        op.KEM_AUTH_BOTH: "BOTH（雙向都驗證）",
+    }
+    print(f"ML-KEM handshake 認證模式: {auth_mode_names.get(KEM_AUTH_MODE, KEM_AUTH_MODE)}")
+
+    kem.set_auth_mode(
+        KEM_AUTH_MODE,
+        device_mldsa_pubkey=mldsa_pk,
+        host_identity=host_identity,
+    )
+
     kem_result = kem_handshake_with_retry(kem, retry=3)
+
+    if kem_result["device_sig_verified"] is not None:
+        print("STM32 對 ML-KEM public key 的簽章驗證:",
+              "通過" if kem_result["device_sig_verified"] else "失敗")
+    print("\n")
 
     # 4. Python AES key = ML-KEM shared secret
     aes_key = kem_result["aes_key"]
@@ -1137,12 +1193,12 @@ try:
 
     print(f"每 {REKEY_EVERY_N_FRAMES if REKEY_EVERY_N_FRAMES > 0 else '(不自動)'} "
           f"張照片後會重新做一次 ML-KEM handshake 換 AES key")
-    print(f"Dilithium 簽章: {'開啟' if DILITHIUM_SIGN_ENABLED else '關閉'}")
-    print(f"Dilithium 驗章: {'開啟' if DILITHIUM_VERIFY_ENABLED else '關閉'}")
+    print(f"ML-DSA 簽章: {'開啟' if MLDSA_SIGN_ENABLED else '關閉'}")
+    print(f"ML-DSA 驗章: {'開啟' if MLDSA_VERIFY_ENABLED else '關閉'}")
     print("\n")
 
     # 6. Start live three windows
-    live_three_windows_threaded(aes, kem, dilithium, URL)
+    live_three_windows_threaded(aes, kem, mldsa, URL)
 
 except KeyboardInterrupt:
     pass

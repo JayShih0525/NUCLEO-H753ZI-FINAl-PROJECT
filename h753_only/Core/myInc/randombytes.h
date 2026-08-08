@@ -5,6 +5,6 @@
 #include <stddef.h>
 
 void Random_Init(void);
-void randombytes(uint8_t *buf, size_t len);
+int randombytes(uint8_t *buf, size_t len);
 
 #endif

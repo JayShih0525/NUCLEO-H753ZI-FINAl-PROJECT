@@ -1,12 +1,12 @@
 #include "main.h"
 #include "transport.h"
 #include "transport_uart.h"
+#include "packet_protocol.h"
 #include "command_dispatcher.h"
-#include "dilithium_app.h"
+#include "mldsa_app.h"
 #include "mlkem_app.h"
 #include "aesgcm_app.h"
 #include "randombytes.h"
-#include "packet_protocol.h"
 
 #include <stdint.h>
 
@@ -33,7 +33,7 @@ int main(void)
     transport.flush(&transport);
 
     Dispatcher_Init();
-    Dilithium_App_Init();
+    MLDSA_App_Init();
     MLKEM_App_Init();
     AESGCM_App_Init();
 

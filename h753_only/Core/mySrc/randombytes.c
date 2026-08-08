@@ -27,18 +27,20 @@ void Random_Init(void)
 	}
 }
 
-void randombytes(uint8_t *buf, size_t len)
+int randombytes(uint8_t *buf, size_t len)
 {
 	uint32_t r;
 	size_t i = 0;
 
 	if (buf == NULL){
 		Error_Handler();
+		return -1;
 	}
 
 	while (i < len){
 		if (HAL_RNG_GenerateRandomNumber(&hrng, &r) != HAL_OK){
 			Error_Handler();
+			return -1;
 		}
 
 		if (i < len) buf[i++] = (uint8_t)(r >> 0);
@@ -46,4 +48,6 @@ void randombytes(uint8_t *buf, size_t len)
 		if (i < len) buf[i++] = (uint8_t)(r >> 16);
 		if (i < len) buf[i++] = (uint8_t)(r >> 24);
 	}
+
+	return 0;
 }
