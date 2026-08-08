@@ -18,3 +18,5 @@ python -m ipykernel install --user --name stm32-pqc --display-name "Python (STM3
 
 ------------------------------------------------------------------------------------------------------------------------
 ML-KEM : https://github.com/pq-crystals/kyber
+dilithium: https://github.com/pq-crystals/dilithium
+ML_DSA: https://github.com/pq-code-package/mldsa-native/tree/main
