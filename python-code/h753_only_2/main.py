@@ -47,7 +47,7 @@ DISPLAY_HEIGHT = 480
 # 第二個 status dashboard 畫面大小（再放大一輪，文字也放大，
 # 並且所有動態長度的文字都會自動縮放避免超出 box）
 STATUS_WIDTH = 1800
-STATUS_HEIGHT = 1560
+STATUS_HEIGHT = 1650
 
 # 每幾秒送一張 frame 給 STM32 加密
 ENCRYPT_GAP = 0.0
@@ -59,7 +59,7 @@ GRAYSCALE = False
 # PQC 週期性換金鑰 / 簽章設定
 # ------------------------------------------------------------
 
-REKEY_EVERY_N_FRAMES = 0
+REKEY_EVERY_N_FRAMES = 50
 KEM_REKEY_RETRY = 3
 MLDSA_SIGN_ENABLED = False
 MLDSA_VERIFY_ENABLED = True
@@ -160,6 +160,46 @@ def draw_panel(img, x1, y1, x2, y2, title):
     )
 
 
+def put_kem_timing(img, timing, p5, label_x, title_y, col_width=260):
+    """
+    畫出最近一次 KEM handshake 各步驟耗時 (ms)。
+    timing 就是 kem_handshake_with_retry() 回傳的 kem_result["timing"]，
+    在還沒發生過 rekey 時是空 dict，此時顯示提示文字而不是一堆 0，
+    避免誤以為 0ms 是真的耗時。
+    """
+    if not timing:
+        put_text_fit(
+            img, "No rekey performed yet", label_x, title_y + 30,
+            p5[2] - label_x - 20, scale=0.5, thickness=1, color=(190, 190, 190),
+        )
+        return
+
+    put_small_text(img, "Last rekey timing (ms)", label_x, title_y)
+
+    row1 = [
+        ("get_pubkey", timing.get("get_pubkey")),
+        ("verify_sig", timing.get("local_verify_device_sig")),
+        ("encapsulate", timing.get("local_encapsulate")),
+    ]
+    row2 = [
+        ("sign_host", timing.get("local_sign_host_sig")),
+        ("decapsulate", timing.get("decapsulate")),
+        ("total", timing.get("total")),
+    ]
+
+    for row_i, row in enumerate((row1, row2)):
+        y = title_y + 35 + row_i * 35
+        x = label_x
+
+        for label, val in row:
+            val_str = "N/A" if val is None else f"{val * 1000:.1f}ms"
+            put_text_fit(
+                img, f"{label}: {val_str}", x, y, col_width - 10,
+                scale=0.5, thickness=1, color=(200, 200, 200),
+            )
+            x += col_width
+
+
 def make_encrypted_status_image(state):
     img = np.zeros((STATUS_HEIGHT, STATUS_WIDTH, 3), dtype=np.uint8)
 
@@ -201,6 +241,7 @@ def make_encrypted_status_image(state):
 
         kem_rekey_count = state.kem_rekey_count
         last_kem_rekey_frame = state.last_kem_rekey_frame
+        last_kem_timing = state.last_kem_timing
 
         last_error_type = state.last_error_type
         last_error_plain_len = state.last_error_plain_len
@@ -307,8 +348,11 @@ def make_encrypted_status_image(state):
     # ========================================================
     # Panel 5: ML-KEM (key exchange)
     # ========================================================
+    # 高度從 830~1200 加到 830~1290（+90px），多塞「最近一次 rekey
+    # 各步驟耗時 (ms)」兩行，下面 Panel 6 / 7 / debug / footer 都要
+    # 跟著往下位移，STATUS_HEIGHT 也一起加大，避免互相蓋到。
 
-    p5 = (40, 830, 880, 1200)
+    p5 = (40, 830, 880, 1290)
     draw_panel(img, *p5, "ML-KEM-768 (Key Exchange)")
 
     kem_label_x = p5[0] + 30
@@ -324,6 +368,8 @@ def make_encrypted_status_image(state):
     next_rekey_str = f"{next_rekey_in} frame(s)" if next_rekey_in is not None else "disabled"
     put_value(img, "Next rekey in", next_rekey_str, kem_label_x, 1105, kem_value_x, kem_max_w)
 
+    put_kem_timing(img, last_kem_timing, p5, kem_label_x, 1150)
+
     _kem_auth_short = {
         op.KEM_AUTH_NONE: "no auth",
         op.KEM_AUTH_DEVICE_SIGNS: "device signs pubkey",
@@ -337,13 +383,13 @@ def make_encrypted_status_image(state):
         if REKEY_EVERY_N_FRAMES > 0
         else f"Periodic rekey disabled. Auth: {_kem_auth_short}."
     )
-    put_text_fit(img, kem_desc, kem_label_x, 1160, p5[2] - kem_label_x - 20, scale=0.5, thickness=1, color=(190, 190, 190))
+    put_text_fit(img, kem_desc, kem_label_x, 1270, p5[2] - kem_label_x - 20, scale=0.5, thickness=1, color=(190, 190, 190))
 
     # ========================================================
     # Panel 6: ML-DSA-44 (digital signature)
     # ========================================================
 
-    p6 = (920, 830, 1760, 1200)
+    p6 = (920, 830, 1760, 1290)
     draw_panel(img, *p6, "ML-DSA-44 (Digital Signature)")
 
     mldsa_label_x = p6[0] + 30
@@ -367,31 +413,31 @@ def make_encrypted_status_image(state):
         f"Last sign+verify: {sign_elapsed:.3f}s, result: {verify_str}. "
         "Signs a SHA-256 digest of nonce+ciphertext+tag, not the raw photo."
     )
-    put_text_fit(img, dil_desc, mldsa_label_x, 1160, p6[2] - mldsa_label_x - 20, scale=0.5, thickness=1, color=(190, 190, 190))
+    put_text_fit(img, dil_desc, mldsa_label_x, 1270, p6[2] - mldsa_label_x - 20, scale=0.5, thickness=1, color=(190, 190, 190))
 
     # ========================================================
     # Panel 7: Key Material (demo/education only)
     # ========================================================
 
-    p7 = (40, 1230, 1760, 1500)
+    p7 = (40, 1320, 1760, 1590)
     draw_panel(img, *p7, "Key Material - DEMO/EDUCATION ONLY, never do this in production")
 
     col1_x = p7[0] + 30
     col2_x = p7[0] + 900
     col_max_w = 830
 
-    put_small_text(img, "AES-256 Key (32B, from ML-KEM shared secret)", col1_x, 1305)
-    put_text_fit(img, aes_key_hex, col1_x, 1335, col_max_w, scale=0.6, thickness=1)
-    put_small_text(img, "ML-KEM Shared Secret (32B)", col2_x, 1305)
-    put_text_fit(img, mlkem_shared_secret_hex, col2_x, 1335, col_max_w, scale=0.6, thickness=1)
-    put_small_text(img, "ML-KEM Public Key (preview)", col1_x, 1375)
-    put_text_fit(img, mlkem_public_key_hex, col1_x, 1405, col_max_w, scale=0.6, thickness=1)
-    put_small_text(img, "ML-KEM Secret Key", col2_x, 1375)
-    put_text_fit(img, "never leaves STM32 - not available on host by design", col2_x, 1405, col_max_w, scale=0.6, thickness=1)
-    put_small_text(img, "ML-DSA-44 Public Key (preview)", col1_x, 1445)
-    put_text_fit(img, mldsa_public_key_hex, col1_x, 1475, col_max_w, scale=0.6, thickness=1)
-    put_small_text(img, "ML-DSA-44 Last Signature (preview)", col2_x, 1445)
-    put_text_fit(img, last_signature_hex, col2_x, 1475, col_max_w, scale=0.6, thickness=1)
+    put_small_text(img, "AES-256 Key (32B, from ML-KEM shared secret)", col1_x, 1395)
+    put_text_fit(img, aes_key_hex, col1_x, 1425, col_max_w, scale=0.6, thickness=1)
+    put_small_text(img, "ML-KEM Shared Secret (32B)", col2_x, 1395)
+    put_text_fit(img, mlkem_shared_secret_hex, col2_x, 1425, col_max_w, scale=0.6, thickness=1)
+    put_small_text(img, "ML-KEM Public Key (preview)", col1_x, 1465)
+    put_text_fit(img, mlkem_public_key_hex, col1_x, 1495, col_max_w, scale=0.6, thickness=1)
+    put_small_text(img, "ML-KEM Secret Key", col2_x, 1465)
+    put_text_fit(img, "never leaves STM32 - not available on host by design", col2_x, 1495, col_max_w, scale=0.6, thickness=1)
+    put_small_text(img, "ML-DSA-44 Public Key (preview)", col1_x, 1535)
+    put_text_fit(img, mldsa_public_key_hex, col1_x, 1565, col_max_w, scale=0.6, thickness=1)
+    put_small_text(img, "ML-DSA-44 Last Signature (preview)", col2_x, 1535)
+    put_text_fit(img, last_signature_hex, col2_x, 1565, col_max_w, scale=0.6, thickness=1)
 
     # ========================================================
     # Panel 8: 除錯用（新增）——最近一次失敗的例外型別跟長度
@@ -448,6 +494,26 @@ def kem_handshake_with_retry(kem: STM32MLKEM, retry: int = 3, force_rekey: bool 
     raise RuntimeError(f"KEM handshake failed after {retry} attempts: {last_error}")
 
 
+def print_kem_timing(kem_result: dict, label: str = "handshake"):
+    """
+    印出 handshake() 各步驟耗時，方便定位 rekey 卡頓卡在哪一步——
+    是 STM32 產生 keypair/簽章/驗章慢（get_pubkey、decapsulate 這兩個
+    包含 UART 來回，時間比較長不一定代表 crypto 本身慢，也可能是
+    傳輸量變大），還是 Python 本地運算慢（local_encapsulate、
+    local_verify_device_sig 純 CPU，通常很快）。
+    """
+    timing = kem_result.get("timing")
+
+    if not timing:
+        return
+
+    print(f"[{label}] KEM handshake 各步驟耗時：")
+    for key in ("get_pubkey", "local_verify_device_sig", "local_encapsulate",
+                "local_sign_host_sig", "decapsulate", "total"):
+        if key in timing:
+            print(f"    {key:24s}: {timing[key] * 1000:.1f} ms")
+
+
 # ============================================================
 # Shared state
 # ============================================================
@@ -495,6 +561,12 @@ class SharedFrameState:
         self.mlkem_shared_secret_hex = "None"
         self.mldsa_public_key_hex = "None"
         self.last_signature_hex = "None"
+
+        # 新增：最近一次 KEM handshake 的各步驟耗時
+        # (get_pubkey / local_verify_device_sig / local_encapsulate /
+        #  local_sign_host_sig / decapsulate / total)，來自
+        # kem_result["timing"]。還沒 rekey 過之前是空 dict。
+        self.last_kem_timing = {}
 
         # 除錯用（新增）：最近一次失敗的例外型別、發生失敗時的 plaintext 長度
         self.last_error_type = "None"
@@ -661,8 +733,13 @@ def encrypt_decrypt_thread(
                         state.aes_key_hex = hex_preview(aes.key)
                         state.mlkem_public_key_hex = hex_preview(kem.public_key)
                         state.mlkem_shared_secret_hex = hex_preview(kem.shared_secret_python)
+                        # 新增：把這次 handshake 的各步驟耗時存起來，
+                        # 讓 status view 顯示。用 dict(...) 複製一份，
+                        # 避免跟 kem_result 內部物件共用參照。
+                        state.last_kem_timing = dict(kem_result.get("timing") or {})
 
                     print(f"Rekey OK, new aes_key = {kem_result['aes_key'].hex()}")
+                    print_kem_timing(kem_result, label=f"periodic rekey @ frame {current_frame_count}")
                     print()
 
                 except Exception as e:
@@ -966,6 +1043,7 @@ try:
     )
 
     kem_result = kem_handshake_with_retry(kem, retry=3)
+    print_kem_timing(kem_result, label="boot handshake")
 
     if kem_result["device_sig_verified"] is not None:
         print("STM32 對 ML-KEM public key 的簽章驗證:",

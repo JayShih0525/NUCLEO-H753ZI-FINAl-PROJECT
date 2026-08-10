@@ -1,38 +1,46 @@
 #include "aes_gcm_lib.h"
 #include "main.h"
+#include "mbedtls/gcm.h"
 #include <string.h>
 
 /*
- * 硬體加速版本，用 STM32H753 內建的 CRYP 周邊做 AES-256-GCM。
+ * 混合版本：資料量在安全範圍內走硬體 CRYP 加速，超過範圍自動退回
+ * 軟體 mbedtls（原本的實作）。對外介面（AESGCM_SetKey/Encrypt/Decrypt）
+ * 完全不變，aesgcm_app.c 不用修改。
  *
- * [更新 2] 從 DataWidthUnit=BYTE 改成 DataWidthUnit=WORD。
+ * ============================================================
+ * 硬體安全上限是怎麼來的（不是猜的，是逐步二分搜尋在真實硬體上
+ * 逼出來的精確邊界）：
+ * ============================================================
  *
- * 背景：demo 實測（200+ 張連續資料，涵蓋各種長度）發現一個非常明確的
- * 規律——plaintext 長度是 4 的倍數（mod4==0）時 100% 成功，只要有餘數
- * （mod4 是 1/2/3）幾乎必然導致 InvalidTag。這代表 BYTE width unit
- * 在處理「大量完整 block 之後、還有一段不滿 4 bytes 尾巴」這個情境時
- * 不可靠（我們的已知答案測試只測過 33 bytes 這種小資料量，沒有覆蓋到
- * 這個規模才會出現的問題；DeInit+Init 那輪測試已經排除是「呼叫間狀態
- * 殘留」的問題，跟連續呼叫的節奏無關，是長度本身的問題）。
+ *   65532 bytes (16383 words) → 已知答案測試，3/3 全部正確
+ *   65536 bytes (16384 words) → 已知答案測試，3/3 全部錯誤
  *
- * 既然問題根源不確定（沒有 stm32h7xx_hal_cryp.c 原始碼，無法從暫存器
- * 層級確認），與其繼續猜暫存器設定，改成「保證輸入永遠對齊」——
- * Python 端（aes_gcm_app.py）會在送資料進來之前，先把 plaintext 補零
- * 到 4 的倍數，讓這裡收到的 input_len 保證是 4 的倍數。這裡因此可以
- * 放心改用 WORD 模式，完全不會走到那個不可靠的路徑，而不是「湊巧不會
- * 觸發」。
+ * 錯誤模式是「不回報任何錯誤（HAL_OK），但算出來的 tag/ciphertext
+ * 是錯的」——完全沒有 HAL_BUSY 或其他訊號可以偵測，重試機制救不了。
  *
- * AESGCM_Encrypt/Decrypt 加了一個防禦性檢查：如果 input_len 不是 4
- * 的倍數（代表呼叫端沒有照約定先做 padding），直接回傳錯誤，而不是
- * 硬送進硬體、又產生一個算不出正確結果的密文。
+ * 16384 = 2^14，推測 CRYP 周邊內部某個計數器/位址欄位只有 14-bit
+ * 寬，處理到第 16384 個 word 時發生截斷或溢位。這是硬體層級的限制，
+ * 不是韌體邏輯可以繞過的，只能避開它——資料量接近或超過這個量級，
+ * 一律不使用硬體路徑。
+ *
+ * 門檻抓 60000 bytes（明顯低於 65532 這條精確邊界，留安全餘裕，
+ * 因為我們只在單一顆晶片上測過，且每個點只驗證 3 次，不是統計上
+ * 非常大量的樣本）。
  */
+#define AES_GCM_HW_MAX_SIZE 60000U
+
+/* ============================================================
+ * 硬體路徑（CRYP，DataType=BYTE_SWAP / DataWidthUnit=WORD，
+ * 已用已知答案測試逐 byte 驗證過，細節見先前的驗證記錄）
+ * ============================================================ */
 
 static CRYP_HandleTypeDef hcryp;
 static uint8_t cryp_ready = 0;
 
 __ALIGN_BEGIN static uint32_t key_words[8] __ALIGN_END = {0};
 __ALIGN_BEGIN static uint32_t iv_words[4] __ALIGN_END = {0};
-__ALIGN_BEGIN static uint32_t header_words[1] __ALIGN_END = {0}; /* HeaderSize=0，內容不會被用到 */
+__ALIGN_BEGIN static uint32_t header_words[1] __ALIGN_END = {0};
 
 static void BuildIV(const uint8_t *nonce)
 {
@@ -47,104 +55,31 @@ static void BuildIV(const uint8_t *nonce)
 
 static void CRYP_ApplyBaseConfig(void)
 {
-    hcryp.Init.DataType        = CRYP_BYTE_SWAP;   /* 已用已知答案測試驗證過，不動 */
+    hcryp.Init.DataType        = CRYP_BYTE_SWAP;
     hcryp.Init.KeySize          = CRYP_KEYSIZE_256B;
     hcryp.Init.pKey             = (uint32_t *)key_words;
     hcryp.Init.pInitVect        = (uint32_t *)iv_words;
     hcryp.Init.Algorithm        = CRYP_AES_GCM;
     hcryp.Init.Header           = (uint32_t *)header_words;
     hcryp.Init.HeaderSize       = 0;
-    /*
-     * CRYP_DATAWIDTHUNIT_WORD：這個巨集名稱沒有逐字在 header 裡確認過
-     * 存在，數值上推測是 0（不特別設定時的預設值）。
-     *
-     * 重要更正：我之前講「這個模式已經驗證過」是錯的——回頭確認，
-     * 我們從最早第一輪已知答案測試開始，就已經寫死用 BYTE 模式
-     * （CRYP_DATAWIDTHUNIT_BYTE），從來沒有真的用 WORD 模式在硬體上
-     * 測試過已知答案。也就是說，這次改用 WORD 模式，是一個全新、
-     * 還沒被驗證過的設定，不是「切回已驗證過的東西」。
-     *
-     * 換上這版之後，強烈建議先跑一輪已知答案測試（可以直接沿用之前
-     * 那組非零 nonce 的測試向量，但把 plaintext 補齊成 4 的倍數、
-     * 用 WORD 模式送——理想上再測一個「刻意夠大、涵蓋多個 block」的
-     * payload，不要只測 33 bytes 那種小資料），確認 WORD 模式本身在
-     * 你的硬體上是正確的，再上 demo，避免這次又是「編得過、能跑、
-     * 但算錯」的情況。
-     */
     hcryp.Init.DataWidthUnit    = CRYP_DATAWIDTHUNIT_WORD;
-    hcryp.Init.HeaderWidthUnit  = CRYP_HEADERWIDTHUNIT_BYTE; /* HeaderSize=0，這個值不影響結果，
-                                                                 用已經確認存在的巨集，不猜測
-                                                                 CRYP_HEADERWIDTHUNIT_WORD 存不存在 */
+    hcryp.Init.HeaderWidthUnit  = CRYP_HEADERWIDTHUNIT_BYTE;
     hcryp.Init.KeyIVConfigSkip  = CRYP_KEYIVCONFIG_ALWAYS;
 }
 
-uint8_t AESGCM_SetKey(const uint8_t *key, uint16_t key_len)
+static uint8_t HW_Encrypt(const uint8_t *nonce, const uint8_t *input, uint32_t input_len,
+                           uint8_t *output, uint8_t *tag)
 {
-    if (key == NULL) return AES_GCM_ERR_NULL_PTR;
-    if (key_len != AES_GCM_KEY_SIZE) return AES_GCM_ERR_SETKEY;
+    if (!cryp_ready) return AES_GCM_ERR_SETKEY;
 
-    for (int i = 0; i < 8; i++)
-    {
-        const uint8_t *k = key + (i * 4);
-        key_words[i] = ((uint32_t)k[0] << 24) | ((uint32_t)k[1] << 16) |
-                       ((uint32_t)k[2] << 8)  | ((uint32_t)k[3]);
-    }
-
-    if (!cryp_ready)
-    {
-        hcryp.Instance = CRYP;
-        CRYP_ApplyBaseConfig();
-
-        if (HAL_CRYP_Init(&hcryp) != HAL_OK)
-        {
-            return AES_GCM_ERR_SETKEY;
-        }
-
-        cryp_ready = 1;
-    }
-    else
-    {
-        CRYP_ApplyBaseConfig();
-
-        if (HAL_CRYP_SetConfig(&hcryp, &hcryp.Init) != HAL_OK)
-        {
-            return AES_GCM_ERR_SETKEY;
-        }
-    }
-
-    return AES_GCM_OK;
-}
-
-uint8_t AESGCM_Encrypt(const uint8_t *nonce, const uint8_t *input, uint32_t input_len,
-                        uint8_t *output, uint8_t *tag)
-{
-    if (nonce == NULL || input == NULL || output == NULL || tag == NULL)
-    {
-        return AES_GCM_ERR_NULL_PTR;
-    }
-
-    if (!cryp_ready)
-    {
-        return AES_GCM_ERR_SETKEY;
-    }
-
-    /* 防禦性檢查：WORD 模式要求長度一定要是 4 的倍數。Python 端
-     * （aes_gcm_app.py）約定會先 padding 好才送過來，這裡再檢查一次，
-     * 如果違反約定，直接回錯誤，不要硬送進硬體產生一個算不出正確
-     * 結果的密文（那種錯誤會很難查，這次的教訓）。 */
-    if ((input_len % 4U) != 0U)
-    {
-        return AES_GCM_ERR_ENCRYPT;
-    }
+    /* 硬體路徑要求 4 對齊（WORD 模式）；呼叫端（aes_gcm_app.py）
+     * 已經保證會先補零到 4 的倍數，這裡再檢查一次防呆。 */
+    if ((input_len % 4U) != 0U) return AES_GCM_ERR_ENCRYPT;
 
     BuildIV(nonce);
 
-    if (HAL_CRYP_SetConfig(&hcryp, &hcryp.Init) != HAL_OK)
-    {
-        return AES_GCM_ERR_ENCRYPT;
-    }
+    if (HAL_CRYP_SetConfig(&hcryp, &hcryp.Init) != HAL_OK) return AES_GCM_ERR_ENCRYPT;
 
-    /* WORD 模式下 Size 參數的單位是「word 數」，不是 byte 數。 */
     if (HAL_CRYP_Encrypt(&hcryp, (uint32_t *)(uintptr_t)input, (uint16_t)(input_len / 4U),
                           (uint32_t *)output, HAL_MAX_DELAY) != HAL_OK)
     {
@@ -159,33 +94,18 @@ uint8_t AESGCM_Encrypt(const uint8_t *nonce, const uint8_t *input, uint32_t inpu
     return AES_GCM_OK;
 }
 
-uint8_t AESGCM_Decrypt(const uint8_t *nonce, const uint8_t *input, uint32_t input_len,
-                        const uint8_t *tag, uint8_t *output)
+static uint8_t HW_Decrypt(const uint8_t *nonce, const uint8_t *input, uint32_t input_len,
+                           const uint8_t *tag, uint8_t *output)
 {
     uint8_t computed_tag[AES_GCM_TAG_SIZE];
     uint8_t diff = 0;
 
-    if (nonce == NULL || input == NULL || tag == NULL || output == NULL)
-    {
-        return AES_GCM_ERR_NULL_PTR;
-    }
-
-    if (!cryp_ready)
-    {
-        return AES_GCM_ERR_SETKEY;
-    }
-
-    if ((input_len % 4U) != 0U)
-    {
-        return AES_GCM_ERR_DECRYPT;
-    }
+    if (!cryp_ready) return AES_GCM_ERR_SETKEY;
+    if ((input_len % 4U) != 0U) return AES_GCM_ERR_DECRYPT;
 
     BuildIV(nonce);
 
-    if (HAL_CRYP_SetConfig(&hcryp, &hcryp.Init) != HAL_OK)
-    {
-        return AES_GCM_ERR_DECRYPT;
-    }
+    if (HAL_CRYP_SetConfig(&hcryp, &hcryp.Init) != HAL_OK) return AES_GCM_ERR_DECRYPT;
 
     if (HAL_CRYP_Decrypt(&hcryp, (uint32_t *)(uintptr_t)input, (uint16_t)(input_len / 4U),
                           (uint32_t *)output, HAL_MAX_DELAY) != HAL_OK)
@@ -203,10 +123,134 @@ uint8_t AESGCM_Decrypt(const uint8_t *nonce, const uint8_t *input, uint32_t inpu
         diff |= (uint8_t)(computed_tag[i] ^ tag[i]);
     }
 
-    if (diff != 0)
+    return (diff != 0) ? AES_GCM_ERR_AUTH_FAIL : AES_GCM_OK;
+}
+
+/* ============================================================
+ * 軟體路徑（mbedtls，原本的實作，資料量沒有硬體那個上限問題）
+ * ============================================================ */
+
+static mbedtls_gcm_context gcm_ctx;
+static uint8_t sw_key_is_set = 0;
+
+static uint8_t SW_Encrypt(const uint8_t *nonce, const uint8_t *input, uint32_t input_len,
+                           uint8_t *output, uint8_t *tag)
+{
+    if (!sw_key_is_set) return AES_GCM_ERR_SETKEY;
+
+    int ret = mbedtls_gcm_crypt_and_tag(
+        &gcm_ctx, MBEDTLS_GCM_ENCRYPT, input_len,
+        nonce, AES_GCM_NONCE_SIZE,
+        NULL, 0,
+        input, output,
+        AES_GCM_TAG_SIZE, tag
+    );
+
+    return (ret != 0) ? AES_GCM_ERR_ENCRYPT : AES_GCM_OK;
+}
+
+static uint8_t SW_Decrypt(const uint8_t *nonce, const uint8_t *input, uint32_t input_len,
+                           const uint8_t *tag, uint8_t *output)
+{
+    if (!sw_key_is_set) return AES_GCM_ERR_SETKEY;
+
+    int ret = mbedtls_gcm_auth_decrypt(
+        &gcm_ctx, input_len,
+        nonce, AES_GCM_NONCE_SIZE,
+        NULL, 0,
+        tag, AES_GCM_TAG_SIZE,
+        input, output
+    );
+
+    return (ret != 0) ? AES_GCM_ERR_AUTH_FAIL : AES_GCM_OK;
+}
+
+/* ============================================================
+ * 對外介面：SetKey 同時把兩條路徑都準備好（呼叫 Encrypt/Decrypt
+ * 之前不知道這次資料量會不會超過硬體上限，兩邊都要隨時可用）
+ * ============================================================ */
+
+uint8_t AESGCM_SetKey(const uint8_t *key, uint16_t key_len)
+{
+    if (key == NULL) return AES_GCM_ERR_NULL_PTR;
+    if (key_len != AES_GCM_KEY_SIZE) return AES_GCM_ERR_SETKEY;
+
+    /* --- 硬體路徑 key --- */
+    for (int i = 0; i < 8; i++)
     {
-        return AES_GCM_ERR_AUTH_FAIL;
+        const uint8_t *k = key + (i * 4);
+        key_words[i] = ((uint32_t)k[0] << 24) | ((uint32_t)k[1] << 16) |
+                       ((uint32_t)k[2] << 8)  | ((uint32_t)k[3]);
     }
 
+    if (!cryp_ready)
+    {
+        hcryp.Instance = CRYP;
+        CRYP_ApplyBaseConfig();
+
+        if (HAL_CRYP_Init(&hcryp) != HAL_OK) return AES_GCM_ERR_SETKEY;
+
+        cryp_ready = 1;
+    }
+    else
+    {
+        CRYP_ApplyBaseConfig();
+
+        if (HAL_CRYP_SetConfig(&hcryp, &hcryp.Init) != HAL_OK) return AES_GCM_ERR_SETKEY;
+    }
+
+    /* --- 軟體路徑 key ---
+     * mbedtls_gcm_init 只需要呼叫一次（配置 context 記憶體），之後
+     * 換 key 只要重新呼叫 mbedtls_gcm_setkey 更新內部的 key schedule
+     * 即可，不需要每次都重新 init。 */
+    if (!sw_key_is_set)
+    {
+        mbedtls_gcm_init(&gcm_ctx);
+    }
+
+    if (mbedtls_gcm_setkey(&gcm_ctx, MBEDTLS_CIPHER_ID_AES, key, 256) != 0)
+    {
+        sw_key_is_set = 0;
+        return AES_GCM_ERR_SETKEY;
+    }
+
+    sw_key_is_set = 1;
+
     return AES_GCM_OK;
+}
+
+uint8_t AESGCM_Encrypt(const uint8_t *nonce, const uint8_t *input, uint32_t input_len,
+                        uint8_t *output, uint8_t *tag)
+{
+    if (nonce == NULL || input == NULL || output == NULL || tag == NULL)
+    {
+        return AES_GCM_ERR_NULL_PTR;
+    }
+
+    if (input_len <= AES_GCM_HW_MAX_SIZE)
+    {
+        return HW_Encrypt(nonce, input, input_len, output, tag);
+    }
+    else
+    {
+        return SW_Encrypt(nonce, input, input_len, output, tag);
+    }
+}
+
+uint8_t AESGCM_Decrypt(const uint8_t *nonce, const uint8_t *input, uint32_t input_len,
+                        const uint8_t *tag, uint8_t *output)
+{
+    if (nonce == NULL || input == NULL || tag == NULL || output == NULL)
+    {
+        return AES_GCM_ERR_NULL_PTR;
+    }
+
+    if (input_len <= AES_GCM_HW_MAX_SIZE)
+    {
+        return HW_Decrypt(nonce, input, input_len, tag, output);
+    }
+    else
+    {
+        return SW_Decrypt(nonce, input, input_len, tag, output);
+    }
 }

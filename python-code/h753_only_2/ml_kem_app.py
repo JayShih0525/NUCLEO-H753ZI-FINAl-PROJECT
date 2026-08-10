@@ -1,5 +1,6 @@
 import hmac
 import hashlib
+import time
 
 from pqcrypto.kem.ml_kem_768 import encrypt
 
@@ -43,11 +44,15 @@ class STM32MLKEM:
         # 用 set_auth_mode() 設定，不要直接改這幾個屬性。
         self.auth_mode = op.KEM_AUTH_NONE
         self.device_mldsa_pubkey = None  # 驗 STM32 對 KEM public key 的簽章用
-        self.host_identity = None            # HostIdentity，HOST_SIGNS 模式才需要
+        self.host_identity = None        # HostIdentity，HOST_SIGNS 模式才需要
 
         # 最近一次 get_public_key() 的簽章驗證結果：
         # None = 這個模式下沒有簽章要驗；True/False = 驗證結果
         self.last_device_sig_verified = None
+
+        # 除錯用：最近一次 handshake 每個步驟花多少時間（秒）。
+        # 拿來定位「換金鑰卡頓」到底是卡在哪一步。
+        self.last_timing = {}
 
     def clear(self):
         proto.send_opcode(self.t, op.CMD_CLEAR)
@@ -164,9 +169,12 @@ class STM32MLKEM:
                     "(call set_auth_mode() first)"
                 )
 
+            verify_start = time.perf_counter()
             verified = hostid.verify_signature(
                 self.device_mldsa_pubkey, public_key, device_sig
             )
+            self.last_timing["local_verify_device_sig"] = time.perf_counter() - verify_start
+
             self.last_device_sig_verified = verified
 
             if not verified:
@@ -221,7 +229,10 @@ class STM32MLKEM:
         proto.send_packet(self.t, bytes(kem_ciphertext))
 
         if need_host_sig:
+            sign_start = time.perf_counter()
             signature = self.host_identity.sign(bytes(kem_ciphertext))
+            self.last_timing["local_sign_host_sig"] = time.perf_counter() - sign_start
+
             proto.send_packet(self.t, signature)
 
         status, payload = proto.recv_response(self.t)
@@ -246,12 +257,37 @@ class STM32MLKEM:
         5. Python 端也對自己算出的 shared_secret_python 做同一次 HKDF，
            兩邊各自獨立算出同一把 AES key（HKDF 是純函式沒有隨機性，
            同樣的 shared secret 兩邊算出來保證相同）
-        """
-        public_key = self.get_public_key()
-        enc = self.encapsulate_with_public_key(public_key)
-        self.send_ciphertext_to_stm32(enc["kem_ciphertext"])
 
+        每個步驟都量時間，存進 self.last_timing / 回傳的 "timing"，
+        方便定位 rekey 卡頓卡在哪一步：
+          get_pubkey               : GET_KEM_PUBKEY 這個 UART 來回總共花多久
+          local_verify_device_sig  : Python 本地驗證 STM32 簽章花多久（純 CPU）
+          local_encapsulate        : Python 本地 encapsulate 花多久（純 CPU）
+          local_sign_host_sig      : Python 本地簽 ciphertext 花多久（純 CPU）
+          decapsulate               : KEM_DECAPSULATE 這個 UART 來回總共花多久
+          local_hkdf                : Python 本地算 HKDF 花多久（純 CPU，通常極快）
+          total                     : 整個 handshake() 從頭到尾的時間
+        """
+        self.last_timing = {}
+        t_start = time.perf_counter()
+
+        t0 = time.perf_counter()
+        public_key = self.get_public_key()
+        self.last_timing["get_pubkey"] = time.perf_counter() - t0
+
+        t0 = time.perf_counter()
+        enc = self.encapsulate_with_public_key(public_key)
+        self.last_timing["local_encapsulate"] = time.perf_counter() - t0
+
+        t0 = time.perf_counter()
+        self.send_ciphertext_to_stm32(enc["kem_ciphertext"])
+        self.last_timing["decapsulate"] = time.perf_counter() - t0
+
+        t0 = time.perf_counter()
         aes_key = _hkdf_sha256_derive32(enc["shared_secret_python"])
+        self.last_timing["local_hkdf"] = time.perf_counter() - t0
+
+        self.last_timing["total"] = time.perf_counter() - t_start
 
         return {
             "public_key": public_key,
@@ -259,6 +295,7 @@ class STM32MLKEM:
             "shared_secret_python": enc["shared_secret_python"],
             "aes_key": aes_key,
             "device_sig_verified": self.last_device_sig_verified,
+            "timing": dict(self.last_timing),
         }
 
     def stm32_encapsulate(self):
