@@ -27,7 +27,7 @@ int main(void)
      * 換成 TransportSPI_Init(&transport, &hspi1) 之類的呼叫即可，
      * 下面全部（Dispatcher / *_App_Init / while 迴圈）都不需要動。
      */
-    TransportUART_Init(&transport, &huart3, 4500000);
+    TransportUART_Init(&transport, &huart3, 5000000);
 
     Random_Init();
     transport.flush(&transport);

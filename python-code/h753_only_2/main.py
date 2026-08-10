@@ -21,7 +21,7 @@ from url_screen_capture import URLScreenCapture
 URL = "http://127.0.0.1:8080/stream.mjpg"
 
 PORT = "/dev/cu.usbmodem1103"
-BAUD = 4500000
+BAUD = 5000000
 AES_GCM_APP_MAX_SIZE = 131072
 
 # 這是「等 STM32 回應」的預設 timeout，不是輪詢間隔。
@@ -59,7 +59,7 @@ GRAYSCALE = False
 # PQC 週期性換金鑰 / 簽章設定
 # ------------------------------------------------------------
 
-REKEY_EVERY_N_FRAMES = 50
+REKEY_EVERY_N_FRAMES = 10
 KEM_REKEY_RETRY = 3
 MLDSA_SIGN_ENABLED = False
 MLDSA_VERIFY_ENABLED = True

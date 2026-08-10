@@ -187,7 +187,7 @@
 #define LPUART_BRR_MAX  0x000FFFFFU  /* LPUART BRR maximum authorized value */
 
 #define UART_BRR_MIN    0x10U        /* UART BRR minimum authorized value */
-#define UART_BRR_MAX    0x0000FFFFU  /* UART BRR maximum authorized value */
+#define UART_BRR_MAX    0x000FFFFFU  /* UART BRR maximum authorized value */
 /**
   * @}
   */

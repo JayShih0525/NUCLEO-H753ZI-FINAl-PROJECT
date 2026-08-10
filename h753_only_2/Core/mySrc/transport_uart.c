@@ -79,9 +79,9 @@ void TransportUART_Init(Transport_t *transport, UART_HandleTypeDef *huart, uint3
     if (HAL_UARTEx_SetRxFifoThreshold(huart, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK) {
         Error_Handler();
     }
-    if (HAL_UARTEx_DisableFifoMode(huart) != HAL_OK) {
-        Error_Handler();
-    }
+//    if (HAL_UARTEx_DisableFifoMode(huart) != HAL_OK) {
+//        Error_Handler();
+//    }
 
     transport->ctx = huart;
     transport->read = UART_Read;
