@@ -4,7 +4,7 @@
 
 namespace {
 
-constexpr uint32_t SERIAL_BAUD = 460800;
+constexpr uint32_t SERIAL_BAUD = 921600;
 uint32_t g_frameId = 0;
 bool g_cameraReady = false;
 bool g_streaming = false;

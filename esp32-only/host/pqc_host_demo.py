@@ -11,6 +11,7 @@ from pqcrypto.kem import ml_kem_768
 
 from host.crypto_ops import aes_decrypt, aes_encrypt, verify_dsa
 from host.serial_protocol import ProtocolError, SerialProtocol
+from host.device_auth import authenticated_kem_key, load_trusted_key, confirm_session
 
 
 KEM_PUBLIC_KEY_SIZE = 1184
@@ -118,7 +119,7 @@ def parse_arguments() -> argparse.Namespace:
         description="ESP32-S3 ML-KEM/AES-GCM/ML-DSA interoperability test"
     )
     parser.add_argument("--port", default="COM5", help="TTL serial port")
-    parser.add_argument("--baud", type=int, default=460800)
+    parser.add_argument("--baud", type=int, default=921600)
     parser.add_argument(
         "--message",
         default="Hello from the PC to ESP32-S3-CAM",
@@ -161,9 +162,7 @@ def get_frame(protocol: SerialProtocol, command: str, expected_size: int) -> byt
 
 
 def establish_session(protocol: SerialProtocol) -> tuple[bytes, bytes, bytes, int]:
-    kem_public_key = get_frame(
-        protocol, "GET_KEM_PUBLIC_KEY", KEM_PUBLIC_KEY_SIZE
-    )
+    kem_public_key = authenticated_kem_key(protocol)
 
     started = time.perf_counter()
     kem_ciphertext, shared_secret = ml_kem_768.encrypt(kem_public_key)
@@ -184,6 +183,7 @@ def establish_session(protocol: SerialProtocol) -> tuple[bytes, bytes, bytes, in
     except (KeyError, ValueError) as error:
         raise ProtocolError(f"Malformed KEM response: {device_result!r}") from error
 
+    confirm_session(protocol, shared_secret, kem_public_key, kem_ciphertext, epoch)
     print(f"[PASS] ML-KEM-768 host encapsulation: {host_elapsed:.3f} ms")
     print(f"[PASS] ML-KEM-768 ESP32 decapsulation: {device_result}")
     return kem_public_key, kem_ciphertext, shared_secret, epoch
@@ -250,7 +250,7 @@ def test_device_to_host_aes(
 
 
 def test_device_signature(protocol: SerialProtocol, digest: bytes) -> None:
-    public_key = get_frame(protocol, "GET_DSA_PUBLIC_KEY", DSA_PUBLIC_KEY_SIZE)
+    public_key = load_trusted_key()
 
     protocol.send_line("DSA_SIGN")
     protocol.expect("READY")
@@ -273,6 +273,7 @@ def test_device_signature(protocol: SerialProtocol, digest: bytes) -> None:
 
 def main() -> int:
     args = parse_arguments()
+    load_trusted_key()
     plaintext = args.message.encode("utf-8")
     if len(plaintext) > 4096:
         raise ValueError("message must be at most 4096 UTF-8 bytes")

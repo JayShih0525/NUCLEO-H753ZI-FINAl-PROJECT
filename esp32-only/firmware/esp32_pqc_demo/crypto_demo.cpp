@@ -7,9 +7,11 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <mbedtls/gcm.h>
+#include <mbedtls/md.h>
 
 #include "protocol.h"
 #include "camera_demo.h"
+#include "device_identity.h"
 
 extern "C" {
 #include "src/mlkem768/api.h"
@@ -29,6 +31,7 @@ constexpr uint32_t DEFAULT_REKEY_INTERVAL = 10;
 constexpr uint32_t MAX_REKEY_INTERVAL = 100000;
 constexpr size_t CAMERA_METADATA_SIZE = 20;
 constexpr size_t MAX_CAMERA_JPEG_SIZE = 1024 * 1024;
+constexpr char AUTH_DOMAIN[] = "esp32-only/auth-kem/v1";
 
 static_assert(KEM_PUBLIC_KEY_SIZE == 1184, "Unexpected ML-KEM-768 public key size");
 static_assert(KEM_SECRET_KEY_SIZE == 2400, "Unexpected ML-KEM-768 secret key size");
@@ -201,7 +204,7 @@ void finishMessage(bool rekeyRequired) {
 
 void handleInfo() {
   Serial.printf(
-      "INFO proto=3 kem=ML-KEM-768 aes=AES-256-GCM dsa=ML-DSA-44 "
+      "INFO proto=4 kem=ML-KEM-768 aes=AES-256-GCM dsa=ML-DSA-44 "
       "camera=OV2640 kem_pk=1184 kem_ct=1088 dsa_pk=1312 dsa_sig=2420 "
       "rekey_every=%lu\n",
       static_cast<unsigned long>(g_rekeyInterval));
@@ -322,13 +325,18 @@ void handleCameraCaptureEncrypted() {
       static_cast<unsigned int>(jpegLength),
       static_cast<unsigned long>(millis() - started));
   Serial.flush();
-  demo_protocol::writeFrame(metadata, sizeof(metadata));
-  demo_protocol::writeFrame(g_nonce, sizeof(g_nonce));
-  demo_protocol::writeFrame(encrypted, jpegLength);
-  demo_protocol::writeFrame(g_tag, sizeof(g_tag));
+  const bool sent = demo_protocol::writeFrame(metadata, sizeof(metadata)) &&
+      demo_protocol::writeFrame(g_nonce, sizeof(g_nonce)) &&
+      demo_protocol::writeFrame(encrypted, jpegLength) &&
+      demo_protocol::writeFrame(g_tag, sizeof(g_tag));
 
   secureZero(encrypted, jpegLength);
   heap_caps_free(encrypted);
+  if (!sent) {
+    // Do not inject ERR text into a partially transmitted binary frame.
+    clearSessionSecret();
+    return;
+  }
   finishMessage(rekeyRequired);
 }
 
@@ -474,6 +482,14 @@ void handleDsaSign() {
     return;
   }
 
+  // Prevent the generic signing demo from forging an AUTH_KEM proof for an
+  // attacker-selected KEM key. The authentication domain includes its NUL.
+  if (messageLength >= sizeof(AUTH_DOMAIN) &&
+      memcmp(g_plaintext, AUTH_DOMAIN, sizeof(AUTH_DOMAIN)) == 0) {
+    sendError("RESERVED_AUTH_DOMAIN");
+    return;
+  }
+
   size_t signatureLength = 0;
   const uint32_t started = millis();
   const int result = MLDSA44::sign(
@@ -563,15 +579,78 @@ void resetSession() {
   demo_protocol::writeLine("OK");
 }
 
+void handleAuthKem() {
+  if (!g_kemKeyReady) { sendError("KEM_KEY_UNAVAILABLE"); return; }
+  demo_protocol::writeLine("READY");
+  uint8_t message[sizeof(AUTH_DOMAIN) + 32 + KEM_PUBLIC_KEY_SIZE];
+  memcpy(message, AUTH_DOMAIN, sizeof(AUTH_DOMAIN));
+  size_t challengeLength = 0;
+  if (!demo_protocol::readFrame(message + sizeof(AUTH_DOMAIN), 32, challengeLength) ||
+      challengeLength != 32) { sendError("BAD_AUTH_CHALLENGE"); return; }
+  memcpy(message + sizeof(AUTH_DOMAIN) + 32, g_kemPublicKey, KEM_PUBLIC_KEY_SIZE);
+  size_t signatureLength = 0;
+  if (MLDSA44::sign(g_signature, &signatureLength, message, sizeof(message), g_dsaSecretKey) != 0 ||
+      signatureLength != MLDSA44::SIGNATURE_SIZE) { sendError("AUTH_SIGN_FAILED"); return; }
+  demo_protocol::writeLine("OK");
+  demo_protocol::writeFrame(g_kemPublicKey, KEM_PUBLIC_KEY_SIZE);
+  demo_protocol::writeFrame(g_signature, signatureLength);
+}
+
+void handleConfirmSession() {
+  if (!g_sessionReady) { sendError("NO_SESSION"); return; }
+  constexpr char domain[] = "esp32-only/confirm/v1";
+  uint8_t message[sizeof(domain) + 32 + KEM_PUBLIC_KEY_SIZE + KEM_CIPHERTEXT_SIZE + 4];
+  memcpy(message, domain, sizeof(domain));
+  demo_protocol::writeLine("READY");
+  size_t length = 0;
+  if (!demo_protocol::readFrame(message + sizeof(domain), 32, length) || length != 32) {
+    sendError("BAD_CONFIRM_CHALLENGE"); return;
+  }
+  size_t offset = sizeof(domain) + 32;
+  memcpy(message + offset, g_kemPublicKey, KEM_PUBLIC_KEY_SIZE);
+  offset += KEM_PUBLIC_KEY_SIZE;
+  memcpy(message + offset, g_kemCiphertext, KEM_CIPHERTEXT_SIZE);
+  offset += KEM_CIPHERTEXT_SIZE;
+  writeU32Be(message + offset, g_sessionEpoch);
+  uint8_t proof[32];
+  if (mbedtls_md_hmac(mbedtls_md_info_from_type(MBEDTLS_MD_SHA256),
+                      g_sharedSecret, sizeof(g_sharedSecret), message, sizeof(message), proof) != 0) {
+    sendError("CONFIRM_FAILED"); return;
+  }
+  demo_protocol::writeLine("OK");
+  demo_protocol::writeFrame(proof, sizeof(proof));
+}
+
 void handleCommand(const char *command) {
-  if (strcmp(command, "INFO") == 0) {
+  if (strncmp(command, "RECOVER ", 8) == 0) {
+    // Runs only after the previous command has returned, never inside a frame.
+    const char *token = command + 8;
+    if (strlen(token) != 32) { sendError("BAD_RECOVERY_TOKEN"); return; }
+    for (size_t i = 0; i < 32; ++i) {
+      if (!((token[i] >= '0' && token[i] <= '9') ||
+            (token[i] >= 'a' && token[i] <= 'f'))) {
+        sendError("BAD_RECOVERY_TOKEN"); return;
+      }
+    }
+    if (!rotateKemKeypair()) { sendError("RECOVERY_KEM_FAILED"); return; }
+    Serial.printf("\nRECOVERED %s\n", token);
+    Serial.flush();
+  } else if (strcmp(command, "INFO") == 0) {
     handleInfo();
+  } else if (strcmp(command, "BOOT_INFO") == 0) {
+    demo_protocol::writeBootInfo();
+  } else if (strcmp(command, "TX_INFO") == 0) {
+    demo_protocol::writeTxInfo();
   } else if (strcmp(command, "MEMORY_INFO") == 0) {
     handleMemoryInfo();
   } else if (strncmp(command, "SET_REKEY_INTERVAL ", 19) == 0) {
     handleSetRekeyInterval(command);
   } else if (strcmp(command, "SELFTEST") == 0) {
     handleSelfTest();
+  } else if (strcmp(command, "AUTH_KEM") == 0) {
+    handleAuthKem();
+  } else if (strcmp(command, "CONFIRM_SESSION") == 0) {
+    handleConfirmSession();
   } else if (strcmp(command, "GET_KEM_PUBLIC_KEY") == 0) {
     if (!g_kemKeyReady) {
       sendError("KEM_KEY_UNAVAILABLE");
@@ -618,13 +697,14 @@ bool initializeCrypto() {
   }
   Serial.printf("ML-KEM-768 keypair ready in %lu ms\n", millis() - started);
 
-  Serial.println("Generating ML-DSA-44 keypair...");
+  Serial.println("Loading or creating persistent ML-DSA-44 identity...");
   started = millis();
-  if (MLDSA44::generateKeypair(g_dsaPublicKey, g_dsaSecretKey) != 0) {
-    Serial.println("ERR ML-DSA key generation failed");
+  if (!loadOrCreateDeviceIdentity(g_dsaPublicKey, g_dsaSecretKey)) {
+    Serial.println("ERR persistent ML-DSA identity unavailable or invalid");
     return false;
   }
   Serial.printf("ML-DSA-44 keypair ready in %lu ms\n", millis() - started);
+  printDeviceFingerprint(g_dsaPublicKey);
   Serial.printf("Free heap: %u bytes, PSRAM: %u bytes\n", ESP.getFreeHeap(), ESP.getPsramSize());
   return true;
 }

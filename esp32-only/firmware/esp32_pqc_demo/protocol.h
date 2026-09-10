@@ -9,7 +9,10 @@ namespace demo_protocol {
 
 bool readLine(char *output, size_t capacity, uint32_t timeoutMs);
 bool readFrame(uint8_t *output, size_t capacity, size_t &length, uint32_t timeoutMs = 10000);
-void writeFrame(const uint8_t *data, size_t length);
+bool writeFrame(const uint8_t *data, size_t length);
+void writeTxInfo();
+void initializeBootDiagnostics();
+void writeBootInfo();
 void writeLine(const char *line);
 
 }  // namespace demo_protocol

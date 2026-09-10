@@ -12,8 +12,8 @@ from camera_serial import open_camera_port, receive_frame
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Display and record ESP32 JPEG stream")
-    parser.add_argument("--port", default="COM5")
-    parser.add_argument("--baud", type=int, default=460800)
+    parser.add_argument("--port", default="COM4")
+    parser.add_argument("--baud", type=int, default=921600)
     parser.add_argument("--seconds", type=float, default=10.0)
     parser.add_argument("--output", type=Path, default=Path("camera_recording.avi"))
     parser.add_argument("--output-fps", type=float, default=14.0)

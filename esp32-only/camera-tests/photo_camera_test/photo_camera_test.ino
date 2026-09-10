@@ -4,16 +4,17 @@
 
 namespace {
 
-constexpr uint32_t SERIAL_BAUD = 460800;
+constexpr uint32_t SERIAL_BAUD = 921600;
 uint32_t g_photoId = 0;
 bool g_cameraReady = false;
 
 void writeU32Be(uint32_t value) {
   const uint8_t bytes[4] = {
-      static_cast<uint8_t>(value >> 24),
-      static_cast<uint8_t>(value >> 16),
-      static_cast<uint8_t>(value >> 8),
-      static_cast<uint8_t>(value)};
+    static_cast<uint8_t>(value >> 24),
+    static_cast<uint8_t>(value >> 16),
+    static_cast<uint8_t>(value >> 8),
+    static_cast<uint8_t>(value)
+  };
   Serial.write(bytes, sizeof(bytes));
 }
 

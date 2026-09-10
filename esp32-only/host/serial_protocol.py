@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import struct
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Callable
 
 import serial
 
@@ -14,8 +15,15 @@ class ProtocolError(RuntimeError):
 @dataclass
 class SerialProtocol:
     serial_port: serial.Serial
+    diagnostic: Callable[[dict], None] | None = None
+    context: dict = field(default_factory=dict)
+
+    def trace(self, event: str, **values) -> None:
+        if self.diagnostic is not None:
+            self.diagnostic(dict(event=event, monotonic=time.monotonic(), **self.context, **values))
 
     def send_line(self, line: str) -> None:
+        self.trace('command', command=line)
         self.serial_port.write(line.encode("ascii") + b"\n")
         self.serial_port.flush()
 
@@ -23,7 +31,9 @@ class SerialProtocol:
         raw = self.serial_port.readline()
         if not raw:
             raise TimeoutError("Timed out waiting for a line from ESP32")
-        return raw.decode("utf-8", errors="replace").strip()
+        line = raw.decode("utf-8", errors="replace").strip()
+        self.trace('response', line=line)
+        return line
 
     def read_until_prefix(self, prefix: str, timeout: float = 10.0) -> str:
         deadline = time.monotonic() + timeout
@@ -59,20 +69,29 @@ class SerialProtocol:
         self.serial_port.write(payload)
         self.serial_port.flush()
 
-    def receive_frame(self, maximum: int = 1 << 20) -> bytes:
-        header = self._read_exact(4)
+    def receive_frame(self, maximum: int = 1 << 20, *, label: str = 'binary') -> bytes:
+        header = self._read_exact(4, label=label, phase='header')
         length = struct.unpack(">I", header)[0]
+        self.trace('frame_header', label=label, header_hex=header.hex(), declared=length, maximum=maximum)
         if length > maximum:
             raise ProtocolError(f"Frame length {length} exceeds maximum {maximum}")
-        return self._read_exact(length)
+        return self._read_exact(length, label=label, phase='payload')
 
-    def _read_exact(self, length: int) -> bytes:
+    def _read_exact(self, length: int, *, label: str = 'binary', phase: str = 'payload') -> bytes:
         output = bytearray()
-        while len(output) < length:
-            chunk = self.serial_port.read(length - len(output))
-            if not chunk:
-                raise TimeoutError(
-                    f"Timed out after {len(output)} of {length} frame bytes"
-                )
-            output.extend(chunk)
+        started = time.monotonic()
+        try:
+            while len(output) < length:
+                chunk = self.serial_port.read(length - len(output))
+                if not chunk:
+                    raise TimeoutError(f'{label}.{phase}: received {len(output)}/{length} bytes')
+                output.extend(chunk)
+        except Exception as error:
+            self.trace('read_error', label=label, phase=phase, expected=length,
+                       received=len(output), elapsed_ms=(time.monotonic()-started)*1000,
+                       header_hex=output.hex() if phase == 'header' else None,
+                       error=str(error))
+            raise
+        self.trace('read_complete', label=label, phase=phase, expected=length,
+                   received=len(output), elapsed_ms=(time.monotonic()-started)*1000)
         return bytes(output)

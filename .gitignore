@@ -3,6 +3,7 @@
 
 # python venv
 **/.venv/
+**/.venv-py310/
 
 # 排除編譯產生的目錄
 **/Debug/
@@ -16,3 +17,28 @@
 *.o
 *.d
 *.xml
+*.avi
+# Python caches and local environments
+**/.venv-*/
+**/__pycache__/
+*.py[cod]
+**/.pytest_cache/
+**/.test-deps/
+
+# Local configuration and secrets (keep sample configuration trackable)
+.env
+.env.*
+!.env.example
+!.env.sample
+/esp32-only/host/trusted_device.pub
+
+# Generated test recordings and diagnostic logs
+/log_*.txt
+/esp32-only/log_*.txt
+/esp32-only/diagnostics/
+/esp32-only/dsa-validation/results/
+/esp32-only/_local_archive/
+
+# Editor/office temporary files
+~$*
+*.tmp

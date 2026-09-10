@@ -2,17 +2,18 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
+import traceback
+from datetime import datetime
 import struct
 import time
 from dataclasses import dataclass
 from pathlib import Path
 
-import cv2
-import numpy as np
-import serial
 from cryptography.exceptions import InvalidTag
 
 from host.crypto_ops import aes_decrypt
+from host.device_auth import load_trusted_key
 from host.pqc_host_demo import (
     AesStatus,
     add_transcript_field,
@@ -24,6 +25,10 @@ from host.pqc_host_demo import (
     test_device_signature,
 )
 from host.serial_protocol import ProtocolError, SerialProtocol
+from host.run_diagnostics import capture_startup, request_snapshot
+from host.serial_connection import camera_connection
+from host.camera_replay import CameraReplayGuard
+from host.camera_recovery import recover_camera
 
 
 CAMERA_METADATA_SIZE = 20
@@ -67,15 +72,22 @@ def parse_camera_metadata(data: bytes) -> CameraMetadata:
 
 
 def request_encrypted_frame(
-    protocol: SerialProtocol, shared_secret: bytes, expected_epoch: int
+    protocol: SerialProtocol, shared_secret: bytes, expected_epoch: int,
+    replay_guard: CameraReplayGuard,
+    *, inject_timeout: bool = False,
 ) -> CameraResult:
     protocol.send_line("CAMERA_CAPTURE_ENCRYPTED")
     status_line = protocol.expect_prefix("OK ")
     status = parse_aes_status(status_line)
-    metadata_bytes = protocol.receive_frame(CAMERA_METADATA_SIZE)
-    nonce = protocol.receive_frame(12)
-    ciphertext = protocol.receive_frame(MAX_JPEG_SIZE)
-    tag = protocol.receive_frame(16)
+    protocol.trace('camera_status', status=status_line)
+    metadata_bytes = protocol.receive_frame(CAMERA_METADATA_SIZE, label='metadata')
+    nonce = protocol.receive_frame(12, label='nonce')
+    ciphertext = protocol.receive_frame(MAX_JPEG_SIZE, label='ciphertext')
+    if inject_timeout:
+        protocol._read_exact(3, label='tag', phase='header')
+        protocol.trace('injected_camera_timeout', received_header_bytes=3)
+        raise TimeoutError('Injected timeout after 3/4 tag header bytes')
+    tag = protocol.receive_frame(16, label='tag')
     metadata = parse_camera_metadata(metadata_bytes)
 
     if status.epoch != expected_epoch or metadata.epoch != expected_epoch:
@@ -96,12 +108,20 @@ def request_encrypted_frame(
     if not (jpeg.startswith(b"\xff\xd8") and jpeg.endswith(b"\xff\xd9")):
         raise ProtocolError("Decrypted camera data is not a complete JPEG")
 
+    try:
+        replay_guard.accept_authenticated(metadata.epoch, metadata.frame_id, status)
+    except ProtocolError as error:
+        protocol.trace('camera_replay_rejected', frame_id=metadata.frame_id, reason=str(error))
+        raise
+
     return CameraResult(
         metadata, metadata_bytes, nonce, ciphertext, tag, jpeg, status
     )
 
 
 def decode_jpeg(result: CameraResult) -> np.ndarray:
+    import cv2
+    import numpy as np
     image = cv2.imdecode(
         np.frombuffer(result.jpeg, dtype=np.uint8), cv2.IMREAD_COLOR
     )
@@ -141,11 +161,11 @@ def parse_arguments() -> argparse.Namespace:
         description="Encrypted ESP32-S3-CAM photo and recording demo"
     )
     parser.add_argument("--port", default="COM5")
-    parser.add_argument("--baud", type=int, default=460800)
+    parser.add_argument("--baud", type=int, default=921600)
     parser.add_argument("--mode", choices=("photo", "record"), default="photo")
-    parser.add_argument("--output", type=Path)
+    parser.add_argument("--output", type=Path, help="photo output path; ignored in record mode")
     parser.add_argument("--seconds", type=float, default=10.0)
-    parser.add_argument("--output-fps", type=float, default=12.0)
+    parser.add_argument("--output-fps", type=float, default=12.0, help="legacy option; no video is saved")
     parser.add_argument("--rekey-every", type=int, default=10)
     parser.add_argument(
         "--memory-every",
@@ -155,171 +175,252 @@ def parse_arguments() -> argparse.Namespace:
     )
     parser.add_argument("--display", action="store_true")
     parser.add_argument("--skip-device-selftest", action="store_true")
+    parser.add_argument('--max-recoveries', type=int, default=2,
+                        help='total camera receive-timeout recoveries per run; 0 disables')
+    parser.add_argument('--inject-camera-timeout-at', type=int, default=0,
+                        help='test only: abandon tag header once at request N; 0 disables')
+    parser.add_argument('--diagnostics', type=Path, help='JSONL trace path (default: diagnostics/camera_TIMESTAMP.jsonl)')
     return parser.parse_args()
 
 
 def main() -> int:
+    import cv2
     args = parse_arguments()
+    # Fail before opening the port or running device self-tests if not enrolled.
+    load_trusted_key()
     if not 1 <= args.rekey_every <= 100000:
         raise ValueError("rekey-every must be between 1 and 100000")
     if args.seconds <= 0:
         raise ValueError("seconds must be greater than zero")
     if args.memory_every < 0:
         raise ValueError("memory-every must be zero or greater")
+    if not 0 <= args.max_recoveries <= 10:
+        raise ValueError('max-recoveries must be between 0 and 10')
+    if args.inject_camera_timeout_at < 0:
+        raise ValueError('inject-camera-timeout-at must be zero or greater')
 
-    output = args.output
-    if output is None:
-        output = Path(
-            "encrypted_photo.jpg" if args.mode == "photo"
-            else "encrypted_camera_recording.avi"
-        )
+    output = (args.output or Path("encrypted_photo.jpg")) if args.mode == "photo" else None
+    if args.mode == "record":
+        print('[INFO] Live validation only; no video file will be saved (--output is ignored).')
 
     print(f"Opening {args.port} at {args.baud} baud...")
-    writer: cv2.VideoWriter | None = None
     frames_received = 0
     last_memory_frame = -1
     started: float | None = None
 
-    with serial.Serial(
-        args.port,
-        args.baud,
-        timeout=5.0,
-        write_timeout=10.0,
-    ) as serial_port:
-        serial_port.dtr = False
-        serial_port.rts = False
-        time.sleep(3.0)
-        serial_port.reset_input_buffer()
-        serial_port.reset_output_buffer()
-        protocol = SerialProtocol(serial_port)
+    trace_path = args.diagnostics or Path('diagnostics') / ('camera_' + datetime.now().strftime('%Y%m%d_%H%M%S_%f') + '.jsonl')
+    trace_path.parent.mkdir(parents=True, exist_ok=True)
+    trace_file = trace_path.open('x', encoding='utf-8')
+    last_verified_frame = None
+    recovery_count = 0
+    injection_used = False
 
-        print(request_info(protocol))
-        protocol.send_line("CAMERA_INFO")
-        print(protocol.expect_prefix("CAMERA "))
+    def record_trace(event):
+        event = dict(event)
+        event.setdefault('wall_time', datetime.now().astimezone().isoformat())
+        event.setdefault('monotonic', time.monotonic())
+        trace_file.write(json.dumps(event, ensure_ascii=False) + '\n')
+        trace_file.flush()
 
-        if not args.skip_device_selftest:
-            protocol.send_line("SELFTEST")
-            selftest = protocol.read_until_prefix("SELFTEST ", timeout=30.0)
-            if "FAIL" in selftest:
-                raise ProtocolError(selftest)
-            print(f"[PASS] Device crypto self-test: {selftest}")
+    print(f'[DIAG] {trace_path.resolve()}')
+    try:
+        record_trace(dict(event='port_open_begin', port=args.port, baud=args.baud,
+                          seconds=args.seconds, mode=args.mode,
+                          output=str(output) if output is not None else None, save_video=False))
+        with camera_connection(args.port, args.baud, record_trace) as serial_port:
+            serial_port.reset_output_buffer()
+            protocol = SerialProtocol(serial_port, diagnostic=record_trace)
+            protocol.context = dict(stage='startup')
+            capture_startup(protocol)
 
-        if args.memory_every:
-            print(format_memory_status(request_memory_status(protocol)))
-            last_memory_frame = 0
+            print(request_info(protocol))
+            initial_snapshot = request_snapshot(protocol, 'start')
+            accepted_boot = initial_snapshot['BOOT_INFO']['boot_id']
 
-        protocol.send_line(f"SET_REKEY_INTERVAL {args.rekey_every}")
-        print(f"[PASS] {protocol.expect_prefix('OK rekey_every=')}")
-        protocol.send_line(
-            "CAMERA_MODE PHOTO" if args.mode == "photo" else "CAMERA_MODE STREAM"
-        )
-        print(f"[PASS] {protocol.expect_prefix('OK camera_mode=')}")
+            if not args.skip_device_selftest:
+                protocol.send_line("SELFTEST")
+                selftest = protocol.read_until_prefix("SELFTEST ", timeout=30.0)
+                if "FAIL" in selftest:
+                    raise ProtocolError(selftest)
+                print(f"[PASS] Device crypto self-test: {selftest}")
 
-        transcript = hashlib.sha256()
-        transcript.update(b"esp32-only/camera-transcript/v1")
-        public_key, kem_ciphertext, shared_secret, epoch = establish_session(protocol)
-        add_session_to_transcript(
-            transcript, public_key, kem_ciphertext, epoch
-        )
-        previous_public_key = public_key
-        previous_shared_secret = shared_secret
-        started = time.monotonic()
-
-        while args.mode == "photo" or time.monotonic() - started < args.seconds:
-            result = request_encrypted_frame(protocol, shared_secret, epoch)
-            image = decode_jpeg(result)
-            add_camera_to_transcript(transcript, result)
-            frames_received += 1
-
-            if frames_received == 1:
-                bad_tag = bytearray(result.tag)
-                bad_tag[0] ^= 1
-                try:
-                    aes_decrypt(
-                        shared_secret,
-                        result.nonce,
-                        result.ciphertext,
-                        bytes(bad_tag),
-                        result.metadata_bytes,
-                    )
-                except InvalidTag:
-                    print("[PASS] Modified camera AES-GCM tag rejected on PC")
-                else:
-                    raise ProtocolError("Modified camera tag was accepted")
-
-            elapsed = time.monotonic() - started
-            print(
-                f"[PASS] frame={result.metadata.frame_id} "
-                f"{result.metadata.width}x{result.metadata.height} "
-                f"JPEG={len(result.jpeg)} epoch={result.status.epoch} "
-                f"count={result.status.count} rekey={int(result.status.rekey)} "
-                f"average={frames_received / elapsed:.2f} FPS"
-            )
-
-            if (
-                args.memory_every
-                and frames_received % args.memory_every == 0
-            ):
+            if args.memory_every:
                 print(format_memory_status(request_memory_status(protocol)))
-                last_memory_frame = frames_received
+                last_memory_frame = 0
 
-            if args.mode == "photo":
-                output.write_bytes(result.jpeg)
-                if args.display:
-                    cv2.imshow("Encrypted ESP32-S3-CAM photo", image)
-                    cv2.waitKey(0)
-                break
+            protocol.send_line(f"SET_REKEY_INTERVAL {args.rekey_every}")
+            print(f"[PASS] {protocol.expect_prefix('OK rekey_every=')}")
+            protocol.send_line(
+                "CAMERA_MODE PHOTO" if args.mode == "photo" else "CAMERA_MODE STREAM"
+            )
+            print(f"[PASS] {protocol.expect_prefix('OK camera_mode=')}")
 
-            if writer is None:
-                height, width = image.shape[:2]
-                writer = cv2.VideoWriter(
-                    str(output),
-                    cv2.VideoWriter_fourcc(*"MJPG"),
-                    args.output_fps,
-                    (width, height),
+            transcript = hashlib.sha256()
+            transcript.update(b"esp32-only/camera-transcript/v1")
+            public_key, kem_ciphertext, shared_secret, epoch = establish_session(protocol)
+            replay_guard = CameraReplayGuard(args.rekey_every)
+            replay_guard.begin_session(epoch)
+            protocol.trace('camera_replay_session', epoch=epoch, last_frame=None)
+            print('[PASS] Camera replay/order guard enabled; frame IDs must remain consecutive across rekey')
+            add_session_to_transcript(
+                transcript, public_key, kem_ciphertext, epoch
+            )
+            previous_public_key = public_key
+            previous_shared_secret = shared_secret
+            started = time.monotonic()
+
+            while args.mode == "photo" or time.monotonic() - started < args.seconds:
+                protocol.context = dict(stage='stream', request_index=frames_received + 1, last_verified_frame=last_verified_frame, expected_epoch=epoch)
+                try:
+                    inject = not injection_used and args.inject_camera_timeout_at == frames_received + 1
+                    injection_used = injection_used or inject
+                    result = request_encrypted_frame(protocol, shared_secret, epoch, replay_guard,
+                                                     inject_timeout=inject)
+                except TimeoutError as error:
+                    if args.mode != 'record' or recovery_count >= args.max_recoveries:
+                        reason = 'recovery_limit_reached' if args.mode == 'record' else 'photo_recovery_disabled'
+                        protocol.trace('recovery_stopped', reason=reason,
+                                       attempts=recovery_count, limit=args.max_recoveries)
+                        print(f'[RECOVERY STOP] {reason}; attempts={recovery_count}')
+                        raise
+                    recovery_count += 1
+                    protocol.trace('recovery_start', attempt=recovery_count, reason=str(error))
+                    print(f'[RECOVERY] Incomplete camera response; attempt {recovery_count}/{args.max_recoveries}')
+                    # Do not carry the old key or ordering state into recovery.
+                    shared_secret = None
+                    previous_shared_secret = None
+                    replay_guard = None
+                    try:
+                        session, recovered_snapshot = recover_camera(
+                            protocol, args.rekey_every, establish_session, request_snapshot)
+                    except Exception as recovery_error:
+                        protocol.trace('recovery_failed', attempt=recovery_count,
+                                       error_type=type(recovery_error).__name__, reason=str(recovery_error))
+                        print(f'[RECOVERY STOP] Recovery failed: {recovery_error}')
+                        raise
+                    public_key, kem_ciphertext, shared_secret, epoch = session
+                    if public_key == previous_public_key:
+                        raise ProtocolError('Recovery did not replace the KEM public key')
+                    previous_public_key = public_key
+                    previous_shared_secret = shared_secret
+                    replay_guard = CameraReplayGuard(args.rekey_every)
+                    replay_guard.begin_session(epoch)
+                    accepted_boot = recovered_snapshot['BOOT_INFO']['boot_id']
+                    add_transcript_field(transcript, b'recovery-segment', recovery_count.to_bytes(4, 'big'))
+                    add_session_to_transcript(transcript, public_key, kem_ciphertext, epoch)
+                    protocol.context = dict(stage='stream', last_verified_frame=last_verified_frame,
+                                            expected_epoch=epoch)
+                    protocol.trace('recovery_complete', attempt=recovery_count,
+                                   boot_id=accepted_boot, new_epoch=epoch)
+                    print('[RECOVERY] Boundary synchronized, device authenticated, new session confirmed')
+                    continue
+                last_verified_frame = result.metadata.frame_id
+                protocol.context['last_verified_frame'] = last_verified_frame
+                protocol.trace('camera_verified', frame_id=last_verified_frame)
+                image = decode_jpeg(result)
+                add_camera_to_transcript(transcript, result)
+                frames_received += 1
+
+                if frames_received == 1:
+                    bad_tag = bytearray(result.tag)
+                    bad_tag[0] ^= 1
+                    try:
+                        aes_decrypt(
+                            shared_secret,
+                            result.nonce,
+                            result.ciphertext,
+                            bytes(bad_tag),
+                            result.metadata_bytes,
+                        )
+                    except InvalidTag:
+                        print("[PASS] Modified camera AES-GCM tag rejected on PC")
+                    else:
+                        raise ProtocolError("Modified camera tag was accepted")
+
+                elapsed = time.monotonic() - started
+                print(
+                    f"[PASS] frame={result.metadata.frame_id} "
+                    f"{result.metadata.width}x{result.metadata.height} "
+                    f"JPEG={len(result.jpeg)} epoch={result.status.epoch} "
+                    f"count={result.status.count} rekey={int(result.status.rekey)} "
+                    f"average={frames_received / elapsed:.2f} FPS"
                 )
-                if not writer.isOpened():
-                    raise RuntimeError("Could not open encrypted camera AVI writer")
-            writer.write(image)
-            if args.display:
-                cv2.imshow("Encrypted ESP32-S3-CAM stream", image)
-                if cv2.waitKey(1) & 0xFF in (ord("q"), 27):
+
+                if (
+                    args.memory_every
+                    and frames_received % args.memory_every == 0
+                ):
+                    print(format_memory_status(request_memory_status(protocol)))
+                    last_memory_frame = frames_received
+
+                if args.mode == "photo":
+                    output.write_bytes(result.jpeg)
+                    if args.display:
+                        cv2.imshow("Encrypted ESP32-S3-CAM photo", image)
+                        cv2.waitKey(0)
                     break
 
-            if result.status.rekey:
-                public_key, kem_ciphertext, shared_secret, epoch = establish_session(
-                    protocol
-                )
-                if public_key == previous_public_key:
-                    raise ProtocolError("ESP32 did not rotate its camera ML-KEM key")
-                if shared_secret == previous_shared_secret:
-                    raise ProtocolError("Camera rekey produced the same secret")
-                add_session_to_transcript(
-                    transcript, public_key, kem_ciphertext, epoch
-                )
-                previous_public_key = public_key
-                previous_shared_secret = shared_secret
-                print(f"[PASS] Camera session automatically rekeyed to epoch {epoch}")
+                if args.display:
+                    cv2.imshow("Encrypted ESP32-S3-CAM stream", image)
+                    if cv2.waitKey(1) & 0xFF in (ord("q"), 27):
+                        break
 
-        if args.memory_every and last_memory_frame != frames_received:
-            print(format_memory_status(request_memory_status(protocol)))
+                if result.status.rekey:
+                    public_key, kem_ciphertext, shared_secret, epoch = establish_session(
+                        protocol
+                    )
+                    if public_key == previous_public_key:
+                        raise ProtocolError("ESP32 did not rotate its camera ML-KEM key")
+                    if shared_secret == previous_shared_secret:
+                        raise ProtocolError("Camera rekey produced the same secret")
+                    replay_guard.begin_session(epoch)
+                    protocol.trace('camera_replay_session', epoch=epoch,
+                                   last_frame=replay_guard.last_frame)
+                    add_session_to_transcript(
+                        transcript, public_key, kem_ciphertext, epoch
+                    )
+                    previous_public_key = public_key
+                    previous_shared_secret = shared_secret
+                    print(f"[PASS] Camera session automatically rekeyed to epoch {epoch}")
 
-        test_device_signature(protocol, transcript.digest())
-        protocol.send_line("RESET_SESSION")
-        protocol.expect("OK")
+            protocol.context = dict(stage='finalize', last_verified_frame=last_verified_frame,
+                                    frames_received=frames_received, expected_epoch=epoch)
+            if args.memory_every and last_memory_frame != frames_received:
+                print(format_memory_status(request_memory_status(protocol)))
 
-    if writer is not None:
-        writer.release()
-    cv2.destroyAllWindows()
+            test_device_signature(protocol, transcript.digest())
+            protocol.send_line("RESET_SESSION")
+            protocol.expect("OK")
+            protocol.trace('session_reset_complete')
+            final_snapshot = request_snapshot(protocol, 'end')
+            if accepted_boot != final_snapshot['BOOT_INFO']['boot_id']:
+                raise ProtocolError('Device rebooted during this run')
+            protocol.trace('run_complete', initial_snapshot=initial_snapshot,
+                           final_snapshot=final_snapshot, recoveries=recovery_count)
+
+    except BaseException:
+        record_trace(dict(event='run_error', last_verified_frame=last_verified_frame,
+                          frames_received=frames_received, traceback=traceback.format_exc()))
+        print(f'[ERROR] Last verified frame={last_verified_frame}; diagnostic log: {trace_path.resolve()}')
+        print('[ERROR] Stream stopped; session may still be active. Do not retry blindly; inspect/reset the device.')
+        raise
+    finally:
+        try:
+            cv2.destroyAllWindows()
+        finally:
+            trace_file.close()
 
     if started is None or frames_received == 0:
         raise RuntimeError("No encrypted camera frames were received")
     elapsed = time.monotonic() - started
     print(
-        f"\nSaved {frames_received} decrypted frame(s), "
-        f"average {frames_received / elapsed:.2f} FPS -> {output.resolve()}"
+        f"\nVerified {frames_received} decrypted frame(s), "
+        f"average {frames_received / elapsed:.2f} FPS"
     )
+    if output is not None:
+        print(f"Saved photo -> {output.resolve()}")
     print("Full ML-KEM + AES-GCM + rekey + ML-DSA camera flow passed.")
+    print(f'Receive-timeout recoveries: {recovery_count}')
     return 0
 
 

@@ -2,6 +2,7 @@
 
 #include "crypto_demo.h"
 #include "camera_demo.h"
+#include "protocol.h"
 
 namespace {
 
@@ -20,10 +21,12 @@ void pqcTask(void *parameter) {
 }  // namespace
 
 void setup() {
-  Serial.begin(460800);
+  Serial.begin(921600);
+  demo_protocol::initializeBootDiagnostics();
   delay(1500);
 
   Serial.println();
+  demo_protocol::writeBootInfo();
   Serial.println("ESP32-S3-CAM ML-KEM + AES-GCM + ML-DSA demo");
 
   Serial.println("Initializing OV2640 camera...");
