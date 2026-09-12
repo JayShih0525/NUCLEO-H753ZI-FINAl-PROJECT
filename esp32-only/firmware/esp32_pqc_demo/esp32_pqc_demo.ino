@@ -1,8 +1,10 @@
 #include <Arduino.h>
+#include <WiFi.h>
 
 #include "crypto_demo.h"
 #include "camera_demo.h"
 #include "protocol.h"
+#include "transport.h"
 
 namespace {
 
@@ -27,6 +29,7 @@ void setup() {
 
   Serial.println();
   demo_protocol::writeBootInfo();
+  if (!demo_transport::begin()) return;
   Serial.println("ESP32-S3-CAM ML-KEM + AES-GCM + ML-DSA demo");
 
   Serial.println("Initializing OV2640 camera...");
@@ -35,7 +38,7 @@ void setup() {
   } else {
     Serial.println("Camera unavailable; crypto commands remain usable");
   }
-
+  
   const BaseType_t result = xTaskCreate(
       pqcTask,
       "pqc-demo",
@@ -47,6 +50,7 @@ void setup() {
   if (result != pdPASS) {
     Serial.println("ERR unable to allocate the 96 KB PQC task stack");
   }
+
 }
 
 void loop() {

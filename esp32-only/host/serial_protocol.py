@@ -17,18 +17,28 @@ class SerialProtocol:
     serial_port: serial.Serial
     diagnostic: Callable[[dict], None] | None = None
     context: dict = field(default_factory=dict)
+    command_id: int = 0
 
     def trace(self, event: str, **values) -> None:
         if self.diagnostic is not None:
-            self.diagnostic(dict(event=event, monotonic=time.monotonic(), **self.context, **values))
+            self.diagnostic(dict(event=event, monotonic=time.monotonic(), command_id=self.command_id, **self.context, **values))
 
     def send_line(self, line: str) -> None:
+        self.command_id += 1
         self.trace('command', command=line)
+        started = time.monotonic()
         self.serial_port.write(line.encode("ascii") + b"\n")
         self.serial_port.flush()
+        self.trace('command_sent', command=line, elapsed_ms=(time.monotonic() - started) * 1000)
 
     def read_line(self) -> str:
-        raw = self.serial_port.readline()
+        started = time.monotonic()
+        try:
+            raw = self.serial_port.readline()
+        except (TimeoutError, OSError) as error:
+            self.trace('line_read_error', elapsed_ms=(time.monotonic() - started) * 1000,
+                       error_type=type(error).__name__, reason=str(error))
+            raise
         if not raw:
             raise TimeoutError("Timed out waiting for a line from ESP32")
         line = raw.decode("utf-8", errors="replace").strip()

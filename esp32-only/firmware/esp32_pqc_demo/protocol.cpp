@@ -1,3 +1,4 @@
+#include "transport.h"
 #include "protocol.h"
 #include <esp_system.h>
 #include <esp_timer.h>
@@ -15,8 +16,9 @@ bool writeExact(const uint8_t *data, size_t length) {
   size_t offset = 0;
   uint32_t lastProgress = millis();
   while (offset < length) {
+    if (!demo_transport::connected()) return false;
     const size_t wanted = length - offset;
-    const size_t written = Serial.write(data + offset, wanted);
+    const size_t written = demo_transport::write(data + offset, wanted);
     if (written < wanted) ++g_shortWrites;
     offset += written;
     if (written > 0) lastProgress = millis();
@@ -35,13 +37,17 @@ bool readExact(uint8_t *output, size_t length, uint32_t timeoutMs) {
   uint32_t lastProgress = millis();
 
   while (offset < length) {
-    const int available = Serial.available();
+    if (!demo_transport::connected()) return false;
+    const int available = demo_transport::io().available();
     if (available > 0) {
       const size_t wanted = min(length - offset, static_cast<size_t>(available));
-      const size_t received = Serial.readBytes(output + offset, wanted);
+      const size_t received = demo_transport::io().readBytes(output + offset, wanted);
       if (received > 0) {
         offset += received;
         lastProgress = millis();
+      } else {
+        if (millis() - lastProgress >= timeoutMs) return false;
+        delay(1);
       }
       continue;
     }
@@ -66,8 +72,14 @@ bool readLine(char *output, size_t capacity, uint32_t timeoutMs) {
   uint32_t lastProgress = millis();
 
   while (true) {
-    if (Serial.available() <= 0) {
-      if (millis() - lastProgress >= timeoutMs) {
+    if (!demo_transport::connected()) return false;
+    if (demo_transport::io().available() <= 0) {
+      const uint32_t waitMs = demo_transport::wifiMode() && length > 0 ? 10000 : timeoutMs;
+      if (millis() - lastProgress >= waitMs) {
+        if (demo_transport::wifiMode() && length > 0) {
+          Serial.printf("[TCP] partial command timeout bytes=%u\n", static_cast<unsigned int>(length));
+          demo_transport::closeConnection();
+        }
         output[0] = '\0';
         return false;
       }
@@ -75,11 +87,16 @@ bool readLine(char *output, size_t capacity, uint32_t timeoutMs) {
       continue;
     }
 
-    const int value = Serial.read();
-    lastProgress = millis();
+    const int value = demo_transport::io().read();
     if (value < 0) {
+      if (millis() - lastProgress >= timeoutMs) {
+        if (demo_transport::wifiMode()) demo_transport::closeConnection();
+        return false;
+      }
+      delay(1);
       continue;
     }
+    lastProgress = millis();
 
     if (value == '\n') {
       output[length] = '\0';
@@ -90,6 +107,7 @@ bool readLine(char *output, size_t capacity, uint32_t timeoutMs) {
     }
 
     if (length + 1 >= capacity) {
+      if (demo_transport::wifiMode()) demo_transport::closeConnection();
       output[0] = '\0';
       return false;
     }
@@ -143,7 +161,7 @@ bool writeFrame(const uint8_t *data, size_t length) {
   if (length > 0 && data == nullptr) return false;
   if (!writeExact(header, sizeof(header))) return false;
   if (length > 0 && !writeExact(data, length)) return false;
-  Serial.flush();
+  demo_transport::flush();
   return true;
 }
 
@@ -173,24 +191,31 @@ void writeBootInfo() {
     default: break;
   }
   // Diagnostic identifier only; not the persistent, authenticated device identity.
-  Serial.printf("BOOT boot_id=%s reset_reason=%d reset_name=%s uptime_ms=%llu\n",
+  demo_transport::io().printf("BOOT boot_id=%s reset_reason=%d reset_name=%s uptime_ms=%llu\n",
       g_bootId, static_cast<int>(g_resetReason), reason,
       static_cast<unsigned long long>(esp_timer_get_time() / 1000));
-  Serial.flush();
+  demo_transport::flush();
 }
 
 void writeTxInfo() {
   // Only emit when explicitly requested BETWEEN transactions, never inside
   // a binary response: diagnostic text would itself corrupt the stream.
-  Serial.printf("TX short_writes=%lu failures=%lu last_requested=%u last_written=%u\n",
+  demo_transport::io().printf("TX short_writes=%lu failures=%lu last_requested=%u last_written=%u\n",
       static_cast<unsigned long>(g_shortWrites), static_cast<unsigned long>(g_writeFailures),
       static_cast<unsigned int>(g_lastRequested), static_cast<unsigned int>(g_lastWritten));
-  Serial.flush();
+  demo_transport::flush();
 }
 
 void writeLine(const char *line) {
-  Serial.println(line);
-  Serial.flush();
+  if (demo_transport::wifiMode()) {
+    if (!writeExact(reinterpret_cast<const uint8_t *>(line), strlen(line)) ||
+        !writeExact(reinterpret_cast<const uint8_t *>("\n"), 1)) {
+      demo_transport::closeConnection();
+    }
+  } else {
+    demo_transport::io().println(line);
+  }
+  demo_transport::flush();
 }
 
 }  // namespace demo_protocol

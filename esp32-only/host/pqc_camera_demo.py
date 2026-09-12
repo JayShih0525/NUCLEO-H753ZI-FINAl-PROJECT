@@ -160,9 +160,9 @@ def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Encrypted ESP32-S3-CAM photo and recording demo"
     )
-    parser.add_argument("--port", default="COM5")
+    parser.add_argument("--port", default="COM3")
     parser.add_argument("--baud", type=int, default=921600)
-    parser.add_argument("--mode", choices=("photo", "record"), default="photo")
+    parser.add_argument("--mode", choices=("photo", "record"), default="record")
     parser.add_argument("--output", type=Path, help="photo output path; ignored in record mode")
     parser.add_argument("--seconds", type=float, default=10.0)
     parser.add_argument("--output-fps", type=float, default=12.0, help="legacy option; no video is saved")

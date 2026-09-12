@@ -6,6 +6,7 @@ import serial
 from host.device_auth import TRUST_FILE, check_enrollment_key, fingerprint
 from host.serial_protocol import SerialProtocol
 
+# upload in arduino IDE and press the reset button will get the fingerprint
 # python -m host.enroll_device --port COM3 --baud 921600 --fingerprint "指紋"
 
 def main():

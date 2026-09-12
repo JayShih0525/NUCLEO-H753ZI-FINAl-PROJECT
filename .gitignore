@@ -31,6 +31,7 @@
 !.env.example
 !.env.sample
 /esp32-only/host/trusted_device.pub
+/esp32-only/firmware/esp32_pqc_demo/wifi_config.h
 
 # Generated test recordings and diagnostic logs
 /log_*.txt

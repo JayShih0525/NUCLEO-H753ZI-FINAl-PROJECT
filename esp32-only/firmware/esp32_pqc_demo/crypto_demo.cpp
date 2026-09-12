@@ -1,3 +1,4 @@
+#include "transport.h"
 #include "crypto_demo.h"
 
 #include <Arduino.h>
@@ -156,9 +157,9 @@ int aesDecrypt(const uint8_t key[SHARED_SECRET_SIZE],
 }
 
 void sendError(const char *reason) {
-  Serial.print("ERR ");
-  Serial.println(reason);
-  Serial.flush();
+  demo_transport::io().print("ERR ");
+  demo_transport::io().println(reason);
+  demo_transport::flush();
 }
 
 bool generateKemKeypair() {
@@ -188,12 +189,12 @@ bool recordSuccessfulMessage() {
 }
 
 void writeAesSuccess(bool rekeyRequired) {
-  Serial.printf(
+  demo_transport::io().printf(
       "OK epoch=%lu count=%lu rekey=%u\n",
       static_cast<unsigned long>(g_sessionEpoch),
       static_cast<unsigned long>(g_messageCount),
       rekeyRequired ? 1 : 0);
-  Serial.flush();
+  demo_transport::flush();
 }
 
 void finishMessage(bool rekeyRequired) {
@@ -203,12 +204,12 @@ void finishMessage(bool rekeyRequired) {
 }
 
 void handleInfo() {
-  Serial.printf(
+  demo_transport::io().printf(
       "INFO proto=4 kem=ML-KEM-768 aes=AES-256-GCM dsa=ML-DSA-44 "
       "camera=OV2640 kem_pk=1184 kem_ct=1088 dsa_pk=1312 dsa_sig=2420 "
       "rekey_every=%lu\n",
       static_cast<unsigned long>(g_rekeyInterval));
-  Serial.flush();
+  demo_transport::flush();
 }
 
 void handleMemoryInfo() {
@@ -226,7 +227,7 @@ void handleMemoryInfo() {
       heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM);
   const UBaseType_t pqcStackMinimum = uxTaskGetStackHighWaterMark(nullptr);
 
-  Serial.printf(
+  demo_transport::io().printf(
       "MEM internal_free=%u internal_min=%u internal_largest=%u "
       "psram_free=%u psram_min=%u psram_largest=%u pqc_stack_min=%u\n",
       static_cast<unsigned int>(internalFree),
@@ -236,17 +237,17 @@ void handleMemoryInfo() {
       static_cast<unsigned int>(psramMinimum),
       static_cast<unsigned int>(psramLargest),
       static_cast<unsigned int>(pqcStackMinimum));
-  Serial.flush();
+  demo_transport::flush();
 }
 
 void handleCameraInfo() {
-  Serial.printf(
+  demo_transport::io().printf(
       "CAMERA ready=%u mode=%s max_jpeg=%u frame_id=%lu\n",
       cameraIsReady() ? 1 : 0,
       cameraModeName(),
       static_cast<unsigned int>(MAX_CAMERA_JPEG_SIZE),
       static_cast<unsigned long>(g_cameraFrameId));
-  Serial.flush();
+  demo_transport::flush();
 }
 
 void handleCameraMode(bool photoMode) {
@@ -255,8 +256,8 @@ void handleCameraMode(bool photoMode) {
     sendError("CAMERA_MODE_FAILED");
     return;
   }
-  Serial.printf("OK camera_mode=%s\n", cameraModeName());
-  Serial.flush();
+  demo_transport::io().printf("OK camera_mode=%s\n", cameraModeName());
+  demo_transport::flush();
 }
 
 void handleCameraCaptureEncrypted() {
@@ -316,7 +317,7 @@ void handleCameraCaptureEncrypted() {
   const size_t jpegLength = frame->len;
   releaseCameraFrame(frame);
   const bool rekeyRequired = recordSuccessfulMessage();
-  Serial.printf(
+  demo_transport::io().printf(
       "OK epoch=%lu count=%lu rekey=%u frame=%lu jpeg=%u elapsed_ms=%lu\n",
       static_cast<unsigned long>(g_sessionEpoch),
       static_cast<unsigned long>(g_messageCount),
@@ -324,7 +325,7 @@ void handleCameraCaptureEncrypted() {
       static_cast<unsigned long>(frameId),
       static_cast<unsigned int>(jpegLength),
       static_cast<unsigned long>(millis() - started));
-  Serial.flush();
+  demo_transport::flush();
   const bool sent = demo_protocol::writeFrame(metadata, sizeof(metadata)) &&
       demo_protocol::writeFrame(g_nonce, sizeof(g_nonce)) &&
       demo_protocol::writeFrame(encrypted, jpegLength) &&
@@ -358,8 +359,8 @@ void handleSetRekeyInterval(const char *command) {
 
   g_rekeyInterval = static_cast<uint32_t>(value);
   g_messageCount = 0;
-  Serial.printf("OK rekey_every=%lu\n", value);
-  Serial.flush();
+  demo_transport::io().printf("OK rekey_every=%lu\n", value);
+  demo_transport::flush();
 }
 
 void handleKemDecapsulate() {
@@ -383,15 +384,15 @@ void handleKemDecapsulate() {
   g_sessionReady = true;
   g_messageCount = 0;
   ++g_sessionEpoch;
-  Serial.printf(
+  demo_transport::io().printf(
       "KEM_OK epoch=%lu limit=%lu elapsed_ms=%lu\n",
       static_cast<unsigned long>(g_sessionEpoch),
       static_cast<unsigned long>(g_rekeyInterval),
       static_cast<unsigned long>(millis() - started));
-  Serial.flush();
+  demo_transport::flush();
 }
 
-void handleAesDecrypt() {
+void handleAesDecrypt(bool encryptedReply = false) {
   if (!g_sessionReady) {
     sendError("NO_SESSION");
     return;
@@ -429,7 +430,20 @@ void handleAesDecrypt() {
 
   const bool rekeyRequired = recordSuccessfulMessage();
   writeAesSuccess(rekeyRequired);
-  demo_protocol::writeFrame(g_plaintext, ciphertextLength);
+  if (encryptedReply) {
+    nextNonce(g_nonce);
+    if (aesEncrypt(g_sharedSecret, g_nonce, g_aad, aadLength, g_plaintext,
+                   ciphertextLength, g_ciphertext, g_tag) != 0) {
+      secureZero(g_plaintext, ciphertextLength);
+      clearSessionSecret();
+      return;
+    }
+    demo_protocol::writeFrame(g_nonce, sizeof(g_nonce));
+    demo_protocol::writeFrame(g_ciphertext, ciphertextLength);
+    demo_protocol::writeFrame(g_tag, sizeof(g_tag));
+  } else {
+    demo_protocol::writeFrame(g_plaintext, ciphertextLength);
+  }
   secureZero(g_plaintext, ciphertextLength);
   finishMessage(rekeyRequired);
 }
@@ -504,8 +518,8 @@ void handleDsaSign() {
     return;
   }
 
-  Serial.printf("OK elapsed_ms=%lu\n", millis() - started);
-  Serial.flush();
+  demo_transport::io().printf("OK elapsed_ms=%lu\n", millis() - started);
+  demo_transport::flush();
   demo_protocol::writeFrame(g_signature, signatureLength);
 }
 
@@ -566,12 +580,12 @@ void handleSelfTest() {
     dsaOk = true;
   }
 
-  Serial.printf(
+  demo_transport::io().printf(
       "SELFTEST MLKEM=%s AES=%s MLDSA=%s\n",
       kemOk ? "PASS" : "FAIL",
       aesOk ? "PASS" : "FAIL",
       dsaOk ? "PASS" : "FAIL");
-  Serial.flush();
+  demo_transport::flush();
 }
 
 void resetSession() {
@@ -622,7 +636,14 @@ void handleConfirmSession() {
 }
 
 void handleCommand(const char *command) {
-  if (strncmp(command, "RECOVER ", 8) == 0) {
+  if (demo_transport::wifiMode() &&
+      (strcmp(command, "AES_DECRYPT") == 0 || strcmp(command, "AES_ENCRYPT") == 0)) {
+    sendError("PLAINTEXT_TEST_DISABLED_ON_WIFI");
+    return;
+  }
+  if (strcmp(command, "AES_ECHO") == 0) {
+    handleAesDecrypt(true);
+  } else if (strncmp(command, "RECOVER ", 8) == 0) {
     // Runs only after the previous command has returned, never inside a frame.
     const char *token = command + 8;
     if (strlen(token) != 32) { sendError("BAD_RECOVERY_TOKEN"); return; }
@@ -633,8 +654,8 @@ void handleCommand(const char *command) {
       }
     }
     if (!rotateKemKeypair()) { sendError("RECOVERY_KEM_FAILED"); return; }
-    Serial.printf("\nRECOVERED %s\n", token);
-    Serial.flush();
+    demo_transport::io().printf("\nRECOVERED %s\n", token);
+    demo_transport::flush();
   } else if (strcmp(command, "INFO") == 0) {
     handleInfo();
   } else if (strcmp(command, "BOOT_INFO") == 0) {
@@ -710,12 +731,20 @@ bool initializeCrypto() {
 }
 
 void runProtocolLoop() {
-  demo_protocol::writeLine("PQC-DEMO READY");
+  if (!demo_transport::wifiMode()) demo_protocol::writeLine("PQC-DEMO READY");
 
   char command[64];
   while (true) {
+    if (!demo_transport::connected()) {
+      clearSessionSecret();
+      if (!demo_transport::acceptConnection()) continue;
+      if (!generateKemKeypair()) { clearSessionSecret(); continue; }
+      demo_protocol::writeLine("PQC-DEMO READY");
+    }
     if (demo_protocol::readLine(command, sizeof(command), 1000)) {
+      demo_transport::commandBegin(command);
       handleCommand(command);
+      demo_transport::commandEnd();
     }
   }
 }
