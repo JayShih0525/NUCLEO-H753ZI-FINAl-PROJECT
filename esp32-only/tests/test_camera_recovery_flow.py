@@ -13,10 +13,10 @@ from host.serial_protocol import ProtocolError
 
 
 class CameraRecoveryFlowTests(unittest.TestCase):
-    def run_failure(self, limit=2, auth_failure=None):
+    def run_failure(self, limit=2, auth_failure=None, tcp=False):
         with tempfile.TemporaryDirectory() as directory, ExitStack() as stack:
             trace = Path(directory) / 'trace.jsonl'
-            args = argparse.Namespace(port='FAKE', baud=921600, mode='record',
+            args = argparse.Namespace(port='FAKE', baud=921600, mode='record', host='192.0.2.1' if tcp else None, tcp_port=9000,
                 seconds=60, memory_every=0, max_recoveries=limit,
                 inject_camera_timeout_at=0, rekey_every=10, output=None,
                 diagnostics=trace, skip_device_selftest=True, display=False)
@@ -29,8 +29,9 @@ class CameraRecoveryFlowTests(unittest.TestCase):
             connection = MagicMock()
             connection.__enter__.return_value.readline.side_effect = itertools.cycle([
                 b'OK rekey_every=10\n', b'OK camera_mode=STREAM\n'])
-            replace('camera_connection', return_value=connection)
-            replace('capture_startup')
+            uart = replace('camera_connection', return_value=connection)
+            tcp_factory = replace('TcpConnection', return_value=connection)
+            startup = replace('capture_startup')
             replace('request_info', return_value='INFO')
             replace('request_snapshot', return_value={'BOOT_INFO': {'boot_id': 'boot'}})
             establish = replace('establish_session', side_effect=[
@@ -55,6 +56,11 @@ class CameraRecoveryFlowTests(unittest.TestCase):
             sign.assert_not_called()
             connection.__exit__.assert_called_once()
             cv2.destroyAllWindows.assert_called_once()
+            if tcp:
+                uart.assert_not_called()
+                startup.assert_not_called()
+                tcp_factory.assert_called_once()
+                connection.__enter__.return_value.reset_output_buffer.assert_not_called()
             self.assertEqual(list(Path(directory).glob('*.avi')), [])
             return events, receive.call_count, establish.call_count, sync.call_count
 
@@ -70,6 +76,12 @@ class CameraRecoveryFlowTests(unittest.TestCase):
         events, reads, handshakes, syncs = self.run_failure(limit=0)
         self.assertEqual((reads, handshakes, syncs), (1, 1, 0))
         self.assertFalse(any(e['event'] == 'recovery_start' for e in events))
+
+    def test_tcp_timeout_stops_without_uart_recovery(self):
+        events, reads, handshakes, syncs = self.run_failure(tcp=True)
+        self.assertEqual((reads, handshakes, syncs), (1, 1, 0))
+        stopped = next(e for e in events if e['event'] == 'recovery_stopped')
+        self.assertEqual(stopped['reason'], 'tcp_reconnect_required')
 
     def test_identity_failure_stops_without_next_capture(self):
         events, reads, handshakes, syncs = self.run_failure(

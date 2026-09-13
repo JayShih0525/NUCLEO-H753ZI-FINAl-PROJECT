@@ -27,6 +27,7 @@ from host.pqc_host_demo import (
 from host.serial_protocol import ProtocolError, SerialProtocol
 from host.run_diagnostics import capture_startup, request_snapshot
 from host.serial_connection import camera_connection
+from host.tcp_connection import TcpConnection
 from host.camera_replay import CameraReplayGuard
 from host.camera_recovery import recover_camera
 
@@ -161,6 +162,8 @@ def parse_arguments() -> argparse.Namespace:
         description="Encrypted ESP32-S3-CAM photo and recording demo"
     )
     parser.add_argument("--port", default="COM3")
+    parser.add_argument('--host', help='ESP32 IP; selects TCP instead of UART')
+    parser.add_argument('--tcp-port', type=int, default=9000)
     parser.add_argument("--baud", type=int, default=921600)
     parser.add_argument("--mode", choices=("photo", "record"), default="record")
     parser.add_argument("--output", type=Path, help="photo output path; ignored in record mode")
@@ -186,6 +189,11 @@ def parse_arguments() -> argparse.Namespace:
 def main() -> int:
     import cv2
     args = parse_arguments()
+    use_tcp = bool(args.host)
+    if not 1 <= args.tcp_port <= 65535:
+        raise ValueError('tcp-port must be between 1 and 65535')
+    if use_tcp and args.inject_camera_timeout_at:
+        raise ValueError('UART timeout injection is not supported in TCP mode')
     # Fail before opening the port or running device self-tests if not enrolled.
     load_trusted_key()
     if not 1 <= args.rekey_every <= 100000:
@@ -203,7 +211,8 @@ def main() -> int:
     if args.mode == "record":
         print('[INFO] Live validation only; no video file will be saved (--output is ignored).')
 
-    print(f"Opening {args.port} at {args.baud} baud...")
+    print(f'Opening TCP {args.host}:{args.tcp_port}...' if use_tcp
+          else f"Opening {args.port} at {args.baud} baud...")
     frames_received = 0
     last_memory_frame = -1
     started: float | None = None
@@ -225,13 +234,20 @@ def main() -> int:
     print(f'[DIAG] {trace_path.resolve()}')
     try:
         record_trace(dict(event='port_open_begin', port=args.port, baud=args.baud,
+                          transport='tcp' if use_tcp else 'uart', host=args.host, tcp_port=args.tcp_port,
                           seconds=args.seconds, mode=args.mode,
                           output=str(output) if output is not None else None, save_video=False))
-        with camera_connection(args.port, args.baud, record_trace) as serial_port:
-            serial_port.reset_output_buffer()
+        connection = (TcpConnection(args.host, args.tcp_port, diagnostic=record_trace) if use_tcp
+                      else camera_connection(args.port, args.baud, record_trace))
+        with connection as serial_port:
+            if not use_tcp:
+                serial_port.reset_output_buffer()
             protocol = SerialProtocol(serial_port, diagnostic=record_trace)
             protocol.context = dict(stage='startup')
-            capture_startup(protocol)
+            if use_tcp:
+                serial_port.diagnostic = lambda event: protocol.trace(event['event'], **{k:v for k,v in event.items() if k != 'event'})
+            else:
+                capture_startup(protocol)
 
             print(request_info(protocol))
             initial_snapshot = request_snapshot(protocol, 'start')
@@ -277,8 +293,9 @@ def main() -> int:
                     result = request_encrypted_frame(protocol, shared_secret, epoch, replay_guard,
                                                      inject_timeout=inject)
                 except TimeoutError as error:
-                    if args.mode != 'record' or recovery_count >= args.max_recoveries:
-                        reason = 'recovery_limit_reached' if args.mode == 'record' else 'photo_recovery_disabled'
+                    if use_tcp or args.mode != 'record' or recovery_count >= args.max_recoveries:
+                        reason = ('tcp_reconnect_required' if use_tcp else
+                                  'recovery_limit_reached' if args.mode == 'record' else 'photo_recovery_disabled')
                         protocol.trace('recovery_stopped', reason=reason,
                                        attempts=recovery_count, limit=args.max_recoveries)
                         print(f'[RECOVERY STOP] {reason}; attempts={recovery_count}')
