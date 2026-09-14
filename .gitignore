@@ -37,6 +37,7 @@
 /log_*.txt
 /esp32-only/log_*.txt
 /esp32-only/diagnostics/
+/esp32-only/performance-tests/results/
 /esp32-only/dsa-validation/results/
 /esp32-only/_local_archive/
 

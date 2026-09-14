@@ -3,10 +3,17 @@ import socket
 import time
 
 
+class TcpTransportError(ConnectionError):
+    """A socket failure, distinct from local file or authentication errors."""
+
+
 class TcpConnection:
     def __init__(self, host, port=9000, timeout=10.0, diagnostic=None):
         self.diagnostic = diagnostic
-        self.socket = socket.create_connection((host, port), timeout=timeout)
+        try:
+            self.socket = socket.create_connection((host, port), timeout=timeout)
+        except OSError as error:
+            raise TcpTransportError(str(error)) from error
         self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         self.trace('tcp_connected', local=self.socket.getsockname(), peer=self.socket.getpeername(), timeout=timeout)
 
@@ -18,9 +25,12 @@ class TcpConnection:
     def read(self, size):
         if size == 0:
             return b''
-        data = self.socket.recv(size)
+        try:
+            data = self.socket.recv(size)
+        except OSError as error:
+            raise TcpTransportError(str(error)) from error
         if not data:
-            raise ConnectionError('ESP32 closed the TCP connection')
+            raise TcpTransportError('ESP32 closed the TCP connection')
         return data
 
     def readline(self):
@@ -41,7 +51,7 @@ class TcpConnection:
         except OSError as error:
             self.trace('tcp_write_error', requested=len(data), elapsed_ms=(time.monotonic()-started)*1000,
                        reason=str(error))
-            raise
+            raise TcpTransportError(str(error)) from error
         self.trace('tcp_write_complete', requested=len(data), elapsed_ms=(time.monotonic()-started)*1000)
         return len(data)
 

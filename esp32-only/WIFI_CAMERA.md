@@ -1,5 +1,7 @@
 # 單台 WiFi 加密相機影像
 
+> 2026-09-14 更新：WiFi record 模式現在會在 socket 錯誤後保留視窗並自動重連、重新認證；下方早期「手動重跑」敘述已被此功能取代。請閱讀 `PROGRESS_AFTER_DSA.md`，並重新燒錄包含短寫入後 closeConnection 的韌體。驗證失敗仍停止，--seconds 包含重試時間。
+
 沿用目前已驗證文字訊息及自動重連的 WiFi 韌體。它的 CAMERA_CAPTURE_ENCRYPTED 已經透過共用 transport 輸出 TCP；本次只新增 Host 的 TCP 選擇，不需為此重新燒錄。
 
 ## 執行

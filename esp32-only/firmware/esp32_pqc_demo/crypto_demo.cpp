@@ -336,6 +336,7 @@ void handleCameraCaptureEncrypted() {
   if (!sent) {
     // Do not inject ERR text into a partially transmitted binary frame.
     clearSessionSecret();
+    demo_transport::closeConnection();
     return;
   }
   finishMessage(rekeyRequired);

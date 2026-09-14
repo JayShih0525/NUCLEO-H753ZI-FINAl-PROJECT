@@ -46,7 +46,7 @@ class CameraRecoveryFlowTests(unittest.TestCase):
             stack.enter_context(patch('builtins.print'))
             expected = ProtocolError if auth_failure else TimeoutError
             with self.assertRaises(expected):
-                camera.main()
+                camera.run_once(args)
             events = [json.loads(line) for line in trace.read_text(encoding='utf-8').splitlines()]
             names = [e['event'] for e in events]
             self.assertIn('run_error', names)

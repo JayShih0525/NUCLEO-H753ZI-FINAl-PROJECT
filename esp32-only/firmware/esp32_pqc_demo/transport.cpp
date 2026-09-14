@@ -22,6 +22,10 @@ std::atomic<unsigned int> disconnectReason{0};
 uint32_t handledGeneration = 0;
 uint32_t retryAt = 0, retryDelay = 1000, retryCount = 0;
 
+bool networkReady() {
+  return WiFi.status() == WL_CONNECTED && static_cast<uint32_t>(WiFi.localIP()) != 0;
+}
+
 void serviceNetwork() {
   const uint32_t generation = disconnectGeneration.load();
   if (generation != handledGeneration) {
@@ -34,7 +38,7 @@ void serviceNetwork() {
     // Keep the existing retry deadline: repeated failure events must not
     // restart the backoff or cause reconnect calls from the event task.
   }
-  if (WiFi.status() == WL_CONNECTED) {
+  if (networkReady()) {
     if (!serverRunning) {
       server.begin();
       serverRunning = true;
@@ -115,13 +119,13 @@ bool begin() {
 bool wifiMode() { return PQC_USE_WIFI; }
 bool connected() {
   return !PQC_USE_WIFI || (disconnectGeneration.load() == handledGeneration &&
-      WiFi.status() == WL_CONNECTED && serverRunning && client.connected());
+      networkReady() && serverRunning && client.connected());
 }
 void closeConnection() { if (PQC_USE_WIFI) client.stop(); }
 bool acceptConnection() {
   if (!PQC_USE_WIFI) return false;
   serviceNetwork();
-  if (!serverRunning || WiFi.status() != WL_CONNECTED ||
+  if (!serverRunning || !networkReady() ||
       disconnectGeneration.load() != handledGeneration) { delay(10); return false; }
   client.stop();
   client = server.available();

@@ -77,8 +77,10 @@ def request_encrypted_frame(
     replay_guard: CameraReplayGuard,
     *, inject_timeout: bool = False,
 ) -> CameraResult:
+    timing_start = time.perf_counter()
     protocol.send_line("CAMERA_CAPTURE_ENCRYPTED")
     status_line = protocol.expect_prefix("OK ")
+    status_at = time.perf_counter()
     status = parse_aes_status(status_line)
     protocol.trace('camera_status', status=status_line)
     metadata_bytes = protocol.receive_frame(CAMERA_METADATA_SIZE, label='metadata')
@@ -89,6 +91,7 @@ def request_encrypted_frame(
         protocol.trace('injected_camera_timeout', received_header_bytes=3)
         raise TimeoutError('Injected timeout after 3/4 tag header bytes')
     tag = protocol.receive_frame(16, label='tag')
+    received_at = time.perf_counter()
     metadata = parse_camera_metadata(metadata_bytes)
 
     if status.epoch != expected_epoch or metadata.epoch != expected_epoch:
@@ -115,6 +118,12 @@ def request_encrypted_frame(
         protocol.trace('camera_replay_rejected', frame_id=metadata.frame_id, reason=str(error))
         raise
 
+    if getattr(protocol, 'profile', False):
+        protocol.trace('camera_timing', frame_id=metadata.frame_id,
+                       request_to_status_ms=(status_at - timing_start) * 1000,
+                       receive_ms=(received_at - status_at) * 1000,
+                       validate_ms=(time.perf_counter() - received_at) * 1000,
+                       jpeg_bytes=len(jpeg), width=metadata.width, height=metadata.height)
     return CameraResult(
         metadata, metadata_bytes, nonce, ciphertext, tag, jpeg, status
     )
@@ -177,6 +186,7 @@ def parse_arguments() -> argparse.Namespace:
         help="query ESP32 memory every N frames; use 0 to disable",
     )
     parser.add_argument("--display", action="store_true")
+    parser.add_argument('--profile', action='store_true', help='trace per-frame Host timings')
     parser.add_argument("--skip-device-selftest", action="store_true")
     parser.add_argument('--max-recoveries', type=int, default=2,
                         help='total camera receive-timeout recoveries per run; 0 disables')
@@ -186,9 +196,8 @@ def parse_arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main() -> int:
+def run_once(args) -> int:
     import cv2
-    args = parse_arguments()
     use_tcp = bool(args.host)
     if not 1 <= args.tcp_port <= 65535:
         raise ValueError('tcp-port must be between 1 and 65535')
@@ -243,6 +252,7 @@ def main() -> int:
             if not use_tcp:
                 serial_port.reset_output_buffer()
             protocol = SerialProtocol(serial_port, diagnostic=record_trace)
+            protocol.profile = getattr(args, 'profile', False)
             protocol.context = dict(stage='startup')
             if use_tcp:
                 serial_port.diagnostic = lambda event: protocol.trace(event['event'], **{k:v for k,v in event.items() if k != 'event'})
@@ -284,6 +294,9 @@ def main() -> int:
             previous_public_key = public_key
             previous_shared_secret = shared_secret
             started = time.monotonic()
+            protocol.trace('stream_start', rekey_every=args.rekey_every,
+                           memory_every=args.memory_every, display=args.display,
+                           profile=protocol.profile)
 
             while args.mode == "photo" or time.monotonic() - started < args.seconds:
                 protocol.context = dict(stage='stream', request_index=frames_received + 1, last_verified_frame=last_verified_frame, expected_epoch=epoch)
@@ -334,7 +347,10 @@ def main() -> int:
                 last_verified_frame = result.metadata.frame_id
                 protocol.context['last_verified_frame'] = last_verified_frame
                 protocol.trace('camera_verified', frame_id=last_verified_frame)
+                decode_started = time.perf_counter()
                 image = decode_jpeg(result)
+                if protocol.profile:
+                    protocol.trace('decode_timing', elapsed_ms=(time.perf_counter() - decode_started) * 1000)
                 add_camera_to_transcript(transcript, result)
                 frames_received += 1
 
@@ -378,11 +394,16 @@ def main() -> int:
                     break
 
                 if args.display:
+                    display_started = time.perf_counter()
                     cv2.imshow("Encrypted ESP32-S3-CAM stream", image)
-                    if cv2.waitKey(1) & 0xFF in (ord("q"), 27):
+                    quit_requested = cv2.waitKey(1) & 0xFF in (ord("q"), 27)
+                    if protocol.profile:
+                        protocol.trace('display_timing', elapsed_ms=(time.perf_counter() - display_started) * 1000)
+                    if quit_requested:
                         break
 
                 if result.status.rekey:
+                    rekey_started = time.perf_counter()
                     public_key, kem_ciphertext, shared_secret, epoch = establish_session(
                         protocol
                     )
@@ -391,6 +412,8 @@ def main() -> int:
                     if shared_secret == previous_shared_secret:
                         raise ProtocolError("Camera rekey produced the same secret")
                     replay_guard.begin_session(epoch)
+                    if protocol.profile:
+                        protocol.trace('rekey_timing', elapsed_ms=(time.perf_counter() - rekey_started) * 1000)
                     protocol.trace('camera_replay_session', epoch=epoch,
                                    last_frame=replay_guard.last_frame)
                     add_session_to_transcript(
@@ -400,6 +423,8 @@ def main() -> int:
                     previous_shared_secret = shared_secret
                     print(f"[PASS] Camera session automatically rekeyed to epoch {epoch}")
 
+            protocol.trace('stream_end', frames_received=frames_received,
+                           elapsed_ms=(time.monotonic() - started) * 1000)
             protocol.context = dict(stage='finalize', last_verified_frame=last_verified_frame,
                                     frames_received=frames_received, expected_epoch=epoch)
             if args.memory_every and last_memory_frame != frames_received:
@@ -419,11 +444,12 @@ def main() -> int:
         record_trace(dict(event='run_error', last_verified_frame=last_verified_frame,
                           frames_received=frames_received, traceback=traceback.format_exc()))
         print(f'[ERROR] Last verified frame={last_verified_frame}; diagnostic log: {trace_path.resolve()}')
-        print('[ERROR] Stream stopped; session may still be active. Do not retry blindly; inspect/reset the device.')
+        print('[ERROR] Current attempt stopped; see the diagnostic log for the failure stage.')
         raise
     finally:
         try:
-            cv2.destroyAllWindows()
+            if not (args.host and args.mode == 'record' and getattr(args, 'auto_reconnect', False)):
+                cv2.destroyAllWindows()
         finally:
             trace_file.close()
 
@@ -439,6 +465,20 @@ def main() -> int:
     print("Full ML-KEM + AES-GCM + rekey + ML-DSA camera flow passed.")
     print(f'Receive-timeout recoveries: {recovery_count}')
     return 0
+
+
+def main() -> int:
+    import cv2
+    from host.wifi_recovery import supervise
+    args = parse_arguments()
+    # UART and photo preserve their existing behavior.
+    args.auto_reconnect = bool(args.host and args.mode == 'record')
+    if not args.auto_reconnect:
+        return run_once(args)
+    try:
+        return supervise(args, run_once, cv2)
+    finally:
+        cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
