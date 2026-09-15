@@ -1,5 +1,7 @@
 # ESP32-S3-CAM camera tests
 
+> 2026-09-15：本資料夾保留不含 PQC 的相機排錯工具，並非目前 WiFi 加密影像入口。下文 baud、錄影及腳本只適用這裡的獨立 sketch；整合版請看 [主 README](../README.md)。舊照片已封存至 `esp32-only/_local_archive/cleanup_20260915/`。
+
 這裡先單獨測相機，不混入 ML-KEM、AES 或 ML-DSA，方便確認 OV2640、PSRAM、UART 和 JPEG 本身是否正常。
 
 兩個 Arduino sketch 使用同一組 N16R8 pin map。Arduino 設定沿用 `esp32-only`：`ESP32S3 Dev Module`、16 MB Flash、OPI PSRAM、TTL Type-C。執行時 UART 是 460800 baud。
@@ -47,4 +49,4 @@ camera-tests/stream_camera_test/stream_camera_test.ino
 - 單張照片：成功取得 800x600 JPEG，36,970 bytes。
 - 串流錄影：460800 baud 下，5.05 秒收到 70 張 320x240 JPEG，平均 13.87 FPS。
 - AVI 檔可由 OpenCV 重新開啟，70 frames、320x240，第一張可正常解碼。
-- 目前板子燒錄的是串流版韌體。
+- 當時板子燒錄的是串流版基準韌體，不代表目前燒錄內容。

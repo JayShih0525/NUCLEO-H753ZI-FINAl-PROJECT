@@ -11,7 +11,7 @@ from pqcrypto.kem import ml_kem_768
 
 from host.crypto_ops import aes_decrypt, aes_encrypt, verify_dsa
 from host.serial_protocol import ProtocolError, SerialProtocol
-from host.device_auth import authenticated_kem_key, load_trusted_key, confirm_session
+from host.device_auth import authenticated_kem_key, load_trusted_key, confirm_session, protocol_trusted_key
 
 
 KEM_PUBLIC_KEY_SIZE = 1184
@@ -120,6 +120,7 @@ def parse_arguments() -> argparse.Namespace:
     )
     parser.add_argument("--port", default="COM5", help="TTL serial port")
     parser.add_argument("--baud", type=int, default=921600)
+    parser.add_argument('--trust-key', help='trusted device .pub file')
     parser.add_argument(
         "--message",
         default="Hello from the PC to ESP32-S3-CAM",
@@ -250,7 +251,7 @@ def test_device_to_host_aes(
 
 
 def test_device_signature(protocol: SerialProtocol, digest: bytes) -> None:
-    public_key = load_trusted_key()
+    public_key = protocol_trusted_key(protocol)
 
     protocol.send_line("DSA_SIGN")
     protocol.expect("READY")
@@ -273,7 +274,7 @@ def test_device_signature(protocol: SerialProtocol, digest: bytes) -> None:
 
 def main() -> int:
     args = parse_arguments()
-    load_trusted_key()
+    trusted_key = load_trusted_key(args.trust_key)
     plaintext = args.message.encode("utf-8")
     if len(plaintext) > 4096:
         raise ValueError("message must be at most 4096 UTF-8 bytes")
@@ -296,6 +297,7 @@ def main() -> int:
         serial_port.reset_output_buffer()
 
         protocol = SerialProtocol(serial_port)
+        protocol.trusted_key = trusted_key
         info = request_info(protocol)
         print(info)
 

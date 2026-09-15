@@ -2,6 +2,10 @@
 #include "protocol.h"
 #include <esp_system.h>
 #include <esp_timer.h>
+#include "frame_writer.h"
+#include "tx_options.h"
+#include <stdarg.h>
+#include <stdio.h>
 
 namespace demo_protocol {
 namespace {
@@ -15,18 +19,28 @@ size_t g_lastWritten = 0;
 bool writeExact(const uint8_t *data, size_t length) {
   size_t offset = 0;
   uint32_t lastProgress = millis();
+  const uint32_t started = lastProgress;
+  auto fail = [&](const char *reason) {
+    ++g_writeFailures;
+    g_lastRequested = length;
+    g_lastWritten = offset;
+    if (demo_transport::wifiMode()) {
+      Serial.printf("[TX_ABORT] reason=%s requested=%u written=%u elapsed_ms=%lu\n",
+          reason, static_cast<unsigned int>(length), static_cast<unsigned int>(offset), millis()-started);
+      demo_transport::closeConnection();
+    }
+    return false;
+  };
   while (offset < length) {
-    if (!demo_transport::connected()) return false;
+    if (!demo_transport::connected()) return fail("disconnected");
+    if (demo_transport::wifiMode() && millis()-started >= 5000) return fail("total_deadline");
     const size_t wanted = length - offset;
     const size_t written = demo_transport::write(data + offset, wanted);
     if (written < wanted) ++g_shortWrites;
     offset += written;
     if (written > 0) lastProgress = millis();
     else if (millis() - lastProgress >= 2000) {
-      ++g_writeFailures;
-      g_lastRequested = length;
-      g_lastWritten = offset;
-      return false;
+      return fail("no_progress");
     } else delay(1);
   }
   return true;
@@ -150,19 +164,23 @@ bool readFrame(uint8_t *output, size_t capacity, size_t &length, uint32_t timeou
   return true;
 }
 
-bool writeFrame(const uint8_t *data, size_t length) {
-  const uint8_t header[4] = {
-      static_cast<uint8_t>((length >> 24) & 0xff),
-      static_cast<uint8_t>((length >> 16) & 0xff),
-      static_cast<uint8_t>((length >> 8) & 0xff),
-      static_cast<uint8_t>(length & 0xff),
-  };
-
-  if (length > 0 && data == nullptr) return false;
-  if (!writeExact(header, sizeof(header))) return false;
-  if (length > 0 && !writeExact(data, length)) return false;
-  demo_transport::flush();
-  return true;
+bool writeFrame(const uint8_t *data, size_t length, const char *label) {
+  const uint32_t started = millis();
+  size_t accepted = 0;
+  const bool sent = writeFramedBytes(data, length,
+      PQC_COALESCE_SMALL_FRAMES && demo_transport::wifiMode(),
+      [&](const uint8_t *bytes, size_t count) {
+        const bool ok = writeExact(bytes, count);
+        if (ok) accepted += count;
+        return ok;
+      });
+  if (sent) demo_transport::flush();
+  if (PQC_TRACE_FRAME_TX && demo_transport::wifiMode()) {
+    Serial.printf("[TX_FRAME] label=%s payload=%u elapsed_ms=%lu ok=%u completed_bytes=%u\n",
+        label, static_cast<unsigned int>(length), millis()-started, sent,
+        static_cast<unsigned int>(accepted));
+  }
+  return sent;
 }
 
 void initializeBootDiagnostics() {
@@ -174,7 +192,7 @@ void initializeBootDiagnostics() {
   }
 }
 
-void writeBootInfo() {
+void writeBootInfo(bool localOnly) {
   const char *reason = "OTHER";
   switch (g_resetReason) {
     case ESP_RST_UNKNOWN: reason = "UNKNOWN"; break;
@@ -191,7 +209,13 @@ void writeBootInfo() {
     default: break;
   }
   // Diagnostic identifier only; not the persistent, authenticated device identity.
-  demo_transport::io().printf("BOOT boot_id=%s reset_reason=%d reset_name=%s uptime_ms=%llu\n",
+  if (localOnly) {
+    Serial.printf("BOOT boot_id=%s reset_reason=%d reset_name=%s uptime_ms=%llu\n",
+        g_bootId, static_cast<int>(g_resetReason), reason,
+        static_cast<unsigned long long>(esp_timer_get_time() / 1000));
+    return;
+  }
+  demo_protocol::writeFormatted("BOOT boot_id=%s reset_reason=%d reset_name=%s uptime_ms=%llu\n",
       g_bootId, static_cast<int>(g_resetReason), reason,
       static_cast<unsigned long long>(esp_timer_get_time() / 1000));
   demo_transport::flush();
@@ -200,7 +224,7 @@ void writeBootInfo() {
 void writeTxInfo() {
   // Only emit when explicitly requested BETWEEN transactions, never inside
   // a binary response: diagnostic text would itself corrupt the stream.
-  demo_transport::io().printf("TX short_writes=%lu failures=%lu last_requested=%u last_written=%u\n",
+  demo_protocol::writeFormatted("TX short_writes=%lu failures=%lu last_requested=%u last_written=%u\n",
       static_cast<unsigned long>(g_shortWrites), static_cast<unsigned long>(g_writeFailures),
       static_cast<unsigned int>(g_lastRequested), static_cast<unsigned int>(g_lastWritten));
   demo_transport::flush();
@@ -216,6 +240,27 @@ void writeLine(const char *line) {
     demo_transport::io().println(line);
   }
   demo_transport::flush();
+}
+
+bool writeFormatted(const char *format, ...) {
+  char buffer[512];
+  va_list args;
+  va_start(args, format);
+  const int length = vsnprintf(buffer, sizeof(buffer), format, args);
+  va_end(args);
+  if (length < 0 || static_cast<size_t>(length) >= sizeof(buffer)) {
+    Serial.println("[TX_TEXT] formatting failed or response exceeded 511 bytes");
+    demo_transport::closeConnection();
+    return false;
+  }
+  const bool sent = writeExact(reinterpret_cast<const uint8_t *>(buffer), static_cast<size_t>(length));
+  if (!sent) {
+    Serial.printf("[TX_TEXT] write failed requested=%u\n", static_cast<unsigned int>(length));
+    demo_transport::closeConnection();
+  } else {
+    demo_transport::flush();
+  }
+  return sent;
 }
 
 }  // namespace demo_protocol

@@ -157,8 +157,7 @@ int aesDecrypt(const uint8_t key[SHARED_SECRET_SIZE],
 }
 
 void sendError(const char *reason) {
-  demo_transport::io().print("ERR ");
-  demo_transport::io().println(reason);
+  demo_protocol::writeFormatted("ERR %s\n", reason);
   demo_transport::flush();
 }
 
@@ -189,7 +188,7 @@ bool recordSuccessfulMessage() {
 }
 
 void writeAesSuccess(bool rekeyRequired) {
-  demo_transport::io().printf(
+  demo_protocol::writeFormatted(
       "OK epoch=%lu count=%lu rekey=%u\n",
       static_cast<unsigned long>(g_sessionEpoch),
       static_cast<unsigned long>(g_messageCount),
@@ -204,7 +203,7 @@ void finishMessage(bool rekeyRequired) {
 }
 
 void handleInfo() {
-  demo_transport::io().printf(
+  demo_protocol::writeFormatted(
       "INFO proto=4 kem=ML-KEM-768 aes=AES-256-GCM dsa=ML-DSA-44 "
       "camera=OV2640 kem_pk=1184 kem_ct=1088 dsa_pk=1312 dsa_sig=2420 "
       "rekey_every=%lu\n",
@@ -227,7 +226,7 @@ void handleMemoryInfo() {
       heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM);
   const UBaseType_t pqcStackMinimum = uxTaskGetStackHighWaterMark(nullptr);
 
-  demo_transport::io().printf(
+  demo_protocol::writeFormatted(
       "MEM internal_free=%u internal_min=%u internal_largest=%u "
       "psram_free=%u psram_min=%u psram_largest=%u pqc_stack_min=%u\n",
       static_cast<unsigned int>(internalFree),
@@ -241,7 +240,7 @@ void handleMemoryInfo() {
 }
 
 void handleCameraInfo() {
-  demo_transport::io().printf(
+  demo_protocol::writeFormatted(
       "CAMERA ready=%u mode=%s max_jpeg=%u frame_id=%lu\n",
       cameraIsReady() ? 1 : 0,
       cameraModeName(),
@@ -256,7 +255,7 @@ void handleCameraMode(bool photoMode) {
     sendError("CAMERA_MODE_FAILED");
     return;
   }
-  demo_transport::io().printf("OK camera_mode=%s\n", cameraModeName());
+  demo_protocol::writeFormatted("OK camera_mode=%s\n", cameraModeName());
   demo_transport::flush();
 }
 
@@ -317,7 +316,7 @@ void handleCameraCaptureEncrypted() {
   const size_t jpegLength = frame->len;
   releaseCameraFrame(frame);
   const bool rekeyRequired = recordSuccessfulMessage();
-  demo_transport::io().printf(
+  demo_protocol::writeFormatted(
       "OK epoch=%lu count=%lu rekey=%u frame=%lu jpeg=%u elapsed_ms=%lu\n",
       static_cast<unsigned long>(g_sessionEpoch),
       static_cast<unsigned long>(g_messageCount),
@@ -326,10 +325,10 @@ void handleCameraCaptureEncrypted() {
       static_cast<unsigned int>(jpegLength),
       static_cast<unsigned long>(millis() - started));
   demo_transport::flush();
-  const bool sent = demo_protocol::writeFrame(metadata, sizeof(metadata)) &&
-      demo_protocol::writeFrame(g_nonce, sizeof(g_nonce)) &&
-      demo_protocol::writeFrame(encrypted, jpegLength) &&
-      demo_protocol::writeFrame(g_tag, sizeof(g_tag));
+  const bool sent = demo_protocol::writeFrame(metadata, sizeof(metadata), "camera.metadata") &&
+      demo_protocol::writeFrame(g_nonce, sizeof(g_nonce), "camera.nonce") &&
+      demo_protocol::writeFrame(encrypted, jpegLength, "camera.ciphertext") &&
+      demo_protocol::writeFrame(g_tag, sizeof(g_tag), "camera.tag");
 
   secureZero(encrypted, jpegLength);
   heap_caps_free(encrypted);
@@ -360,7 +359,7 @@ void handleSetRekeyInterval(const char *command) {
 
   g_rekeyInterval = static_cast<uint32_t>(value);
   g_messageCount = 0;
-  demo_transport::io().printf("OK rekey_every=%lu\n", value);
+  demo_protocol::writeFormatted("OK rekey_every=%lu\n", value);
   demo_transport::flush();
 }
 
@@ -385,7 +384,7 @@ void handleKemDecapsulate() {
   g_sessionReady = true;
   g_messageCount = 0;
   ++g_sessionEpoch;
-  demo_transport::io().printf(
+  demo_protocol::writeFormatted(
       "KEM_OK epoch=%lu limit=%lu elapsed_ms=%lu\n",
       static_cast<unsigned long>(g_sessionEpoch),
       static_cast<unsigned long>(g_rekeyInterval),
@@ -519,7 +518,7 @@ void handleDsaSign() {
     return;
   }
 
-  demo_transport::io().printf("OK elapsed_ms=%lu\n", millis() - started);
+  demo_protocol::writeFormatted("OK elapsed_ms=%lu\n", millis() - started);
   demo_transport::flush();
   demo_protocol::writeFrame(g_signature, signatureLength);
 }
@@ -581,7 +580,7 @@ void handleSelfTest() {
     dsaOk = true;
   }
 
-  demo_transport::io().printf(
+  demo_protocol::writeFormatted(
       "SELFTEST MLKEM=%s AES=%s MLDSA=%s\n",
       kemOk ? "PASS" : "FAIL",
       aesOk ? "PASS" : "FAIL",
@@ -655,7 +654,7 @@ void handleCommand(const char *command) {
       }
     }
     if (!rotateKemKeypair()) { sendError("RECOVERY_KEM_FAILED"); return; }
-    demo_transport::io().printf("\nRECOVERED %s\n", token);
+    demo_protocol::writeFormatted("\nRECOVERED %s\n", token);
     demo_transport::flush();
   } else if (strcmp(command, "INFO") == 0) {
     handleInfo();

@@ -28,7 +28,7 @@ void setup() {
   delay(1500);
 
   Serial.println();
-  demo_protocol::writeBootInfo();
+  demo_protocol::writeBootInfo(true);
   if (!demo_transport::begin()) return;
   Serial.println("ESP32-S3-CAM ML-KEM + AES-GCM + ML-DSA demo");
 

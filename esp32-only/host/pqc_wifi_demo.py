@@ -35,11 +35,11 @@ def exchange(protocol, key, epoch, index, message, count, limit):
         raise ProtocolError('Echo session status mismatch')
     return status
 
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--host', required=True, help='ESP32 IP shown on Serial Monitor')
     parser.add_argument('--tcp-port', type=int, default=9000)
+    parser.add_argument('--trust-key', type=Path, help='trusted device .pub file')
     parser.add_argument('--message', default='Hello encrypted WiFi')
     parser.add_argument('--exchange-count', type=int, default=20)
     parser.add_argument('--rekey-every', type=int, default=10)
@@ -50,7 +50,7 @@ def main():
         parser.error('message must be 1..4096 UTF-8 bytes; exchange-count 1..100000')
     if not 1 <= args.rekey_every <= 100000 or not 1 <= args.tcp_port <= 65535:
         parser.error('invalid rekey interval or TCP port')
-    load_trusted_key()  # Never enroll an unknown key over this connection.
+    trusted_key = load_trusted_key(args.trust_key)
     trace_path = args.diagnostics or Path('diagnostics') / ('wifi_' + datetime.now().strftime('%Y%m%d_%H%M%S_%f') + '.jsonl')
     trace_path.parent.mkdir(parents=True, exist_ok=True)
     print(f'[DIAG] {trace_path.resolve()}')
@@ -63,6 +63,7 @@ def main():
         try:
             with TcpConnection(args.host, args.tcp_port, diagnostic=record) as connection:
                 protocol = SerialProtocol(connection, diagnostic=record)
+                protocol.trusted_key = trusted_key
                 connection.diagnostic = lambda event: protocol.trace(event['event'], **{k:v for k,v in event.items() if k != 'event'})
                 print(request_info(protocol))
                 protocol.send_line(f'SET_REKEY_INTERVAL {args.rekey_every}')

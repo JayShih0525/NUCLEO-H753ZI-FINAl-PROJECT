@@ -18,6 +18,7 @@ class SerialProtocol:
     diagnostic: Callable[[dict], None] | None = None
     context: dict = field(default_factory=dict)
     command_id: int = 0
+    trusted_key: bytes | None = None
 
     def trace(self, event: str, **values) -> None:
         if self.diagnostic is not None:

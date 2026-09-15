@@ -44,6 +44,9 @@ def supervise(args, run_once, cv2):
                     if not args.display:
                         time.sleep(.05)
                 attempt += 1
+            except Exception as error:
+                record('fatal_error', error_type=type(error).__name__, reason=str(error))
+                raise
             else:
                 record('completed', exit_code=result)
                 return result

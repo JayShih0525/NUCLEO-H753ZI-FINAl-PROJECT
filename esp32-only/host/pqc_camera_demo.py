@@ -171,6 +171,7 @@ def parse_arguments() -> argparse.Namespace:
         description="Encrypted ESP32-S3-CAM photo and recording demo"
     )
     parser.add_argument("--port", default="COM3")
+    parser.add_argument('--trust-key', type=Path, help='trusted device .pub file; default: host/trusted_device.pub')
     parser.add_argument('--host', help='ESP32 IP; selects TCP instead of UART')
     parser.add_argument('--tcp-port', type=int, default=9000)
     parser.add_argument("--baud", type=int, default=921600)
@@ -204,7 +205,10 @@ def run_once(args) -> int:
     if use_tcp and args.inject_camera_timeout_at:
         raise ValueError('UART timeout injection is not supported in TCP mode')
     # Fail before opening the port or running device self-tests if not enrolled.
-    load_trusted_key()
+    trusted_key = getattr(args, '_trusted_key', None)
+    if trusted_key is None:
+        trusted_key = load_trusted_key(getattr(args, 'trust_key', None))
+        args._trusted_key = trusted_key
     if not 1 <= args.rekey_every <= 100000:
         raise ValueError("rekey-every must be between 1 and 100000")
     if args.seconds <= 0:
@@ -252,6 +256,7 @@ def run_once(args) -> int:
             if not use_tcp:
                 serial_port.reset_output_buffer()
             protocol = SerialProtocol(serial_port, diagnostic=record_trace)
+            protocol.trusted_key = trusted_key
             protocol.profile = getattr(args, 'profile', False)
             protocol.context = dict(stage='startup')
             if use_tcp:
@@ -471,6 +476,8 @@ def main() -> int:
     import cv2
     from host.wifi_recovery import supervise
     args = parse_arguments()
+    # Pin bytes for the entire run, including reconnect attempts.
+    args._trusted_key = load_trusted_key(getattr(args, 'trust_key', None))
     # UART and photo preserve their existing behavior.
     args.auto_reconnect = bool(args.host and args.mode == 'record')
     if not args.auto_reconnect:

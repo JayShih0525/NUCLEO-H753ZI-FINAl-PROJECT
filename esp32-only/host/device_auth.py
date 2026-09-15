@@ -18,14 +18,19 @@ def fingerprint(key: bytes) -> str:
     return hashlib.sha256(key).hexdigest()
 
 
-def load_trusted_key() -> bytes:
+def load_trusted_key(path=None) -> bytes:
     try:
-        key = TRUST_FILE.read_bytes()
+        key = (Path(path) if path is not None else TRUST_FILE).read_bytes()
     except FileNotFoundError as error:
         raise ProtocolError('No trusted device key. Run python -m host.enroll_device first; see AUTHENTICATION.md.') from error
     if len(key) != 1312:
         raise ProtocolError('Trusted ML-DSA key must contain exactly 1312 bytes')
     return key
+
+
+def protocol_trusted_key(protocol) -> bytes:
+    key = getattr(protocol, 'trusted_key', None)
+    return key if isinstance(key, bytes) else load_trusted_key()
 
 
 def proof_message(challenge: bytes, kem_key: bytes) -> bytes:
@@ -47,7 +52,7 @@ def verify_proof(trusted_key: bytes, challenge: bytes, kem_key: bytes, signature
 
 
 def authenticated_kem_key(protocol) -> bytes:
-    trusted = load_trusted_key()
+    trusted = protocol_trusted_key(protocol)
     challenge = os.urandom(32)
     protocol.send_line('AUTH_KEM')
     protocol.expect('READY')

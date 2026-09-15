@@ -34,3 +34,6 @@ python performance-tests/analyze_trace.py diagnostics/camera_20260913_200602_431
 ```
 
 reports/ 放可追蹤的比較報告，results/ 放本機原始資料。先確認主因，再視量測結果補板端計時、改連續傳送或有限佇列的拍照／加密／傳送流水線。每次只改一項，保留身份驗證、GCM、防重播及換鑰，驗證 FPS、P95 停頓、記憶體與錯誤率一起改善。
+
+
+/* request_to_status_ms, receive_ms, verified_interval_ms, rekey_ms */

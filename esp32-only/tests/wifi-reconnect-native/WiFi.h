@@ -12,5 +12,5 @@ struct WiFiStub {int state=0, retries=0; bool automatic=true; std::function<void
  void begin(const char*,const char*){} int status(){return state;} void reconnect(){++retries;}
  uint32_t ip=1; int RSSI(){return -50;} Address localIP(){return {ip};}
 }; inline WiFiStub WiFi;
-class WiFiClient:public Stream {public: bool live=false; void stop(){live=false;} bool connected(){return live;} explicit operator bool(){return live;} void setNoDelay(bool){} void setTimeout(int){} Address remoteIP(){return {};} unsigned int remotePort(){return 1234;} };
+class WiFiClient:public Stream {public: int fd(){return 7;} bool live=false; void stop(){live=false;} bool connected(){return live;} explicit operator bool(){return live;} void setNoDelay(bool){} void setTimeout(int){} Address remoteIP(){return {};} unsigned int remotePort(){return 1234;} };
 class WiFiServer {public: bool running=false; explicit WiFiServer(int){} void begin(){running=true;} void end(){running=false;} WiFiClient available(){WiFiClient c;c.live=running;return c;} };

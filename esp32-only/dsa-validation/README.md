@@ -1,5 +1,7 @@
 # ML-DSA-44 獨立驗證
 
+> 2026-09-15 整理註記：此工具保留作獨立 DSA 基準；device 模式僅走 UART，請使用 UART 設定的韌體。現行整合韌體已使用 NVS 持久身分，但此工具直接從連線取得公鑰，仍不等於可信身分驗證。專案最新進度及 WiFi 操作見 [主 README](../README.md)。
+
 本資料夾新增診斷工具，不修改既有 Host、測試或韌體。每項檢查顯示在 terminal，並自動保存 UTF-8 TXT 與 JSON 至 `results/`，檔名含模式與時間。不保存私鑰；公鑰只記錄 SHA-256 指紋。
 
 ## 執行
@@ -42,7 +44,7 @@ PASS 表示符合預期，不是每項都驗證成功。Malformed input 的 Valu
 
 local：Python 產生 DSA keypair、簽章、驗證。
 
-device：ESP32 提供啟動時產生的 DSA 公鑰；Host 送測試訊息；ESP32 用私鑰簽章；Host 用 pqcrypto 驗證與做竄改測試。另一組錯誤公鑰及對照簽章在 PC 產生。
+device：ESP32 提供目前載入的 DSA 公鑰；Host 送測試訊息；ESP32 用私鑰簽章；Host 用 pqcrypto 驗證與做竄改測試。另一組錯誤公鑰及對照簽章在 PC 產生。
 
 簽章與公鑰、訊息共同滿足驗證關係；改訊息後，原簽章不再符合。簽章不是加密訊息，也不是用公鑰解密私鑰加密過的摘要。
 

@@ -13,6 +13,7 @@ from analyze_trace import analyze
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--host', required=True)
+    parser.add_argument('--trust-key', help='device .pub file (relative to current directory)')
     parser.add_argument('--tcp-port', type=int, default=9000)
     parser.add_argument('--seconds', type=float, default=60)
     parser.add_argument('--rekey-every', type=int, default=10)
@@ -29,6 +30,8 @@ def main():
                '--memory-every', str(args.memory_every), '--profile', '--diagnostics', str(trace)]
     if args.display:
         command.append('--display')
+    if args.trust_key:
+        command.extend(['--trust-key', str(Path(args.trust_key).resolve())])
     def git(*arguments):
         result = subprocess.run(['git', *arguments], cwd=root, capture_output=True, text=True)
         return result.stdout.strip() if result.returncode == 0 else None

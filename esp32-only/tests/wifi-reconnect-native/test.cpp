@@ -22,6 +22,14 @@ int main(){
  // Even a fast disconnect/reconnect must invalidate the old TCP session.
  WiFi.callback(5,{{202}}); assert(!connected()); serviceNetwork(); assert(!client.live);
  assert(acceptConnection()); assert(connected());
+ uint8_t payload[20]={};
+ assert(write(payload,20)==20);
+ sendResult=-1;sendError=EAGAIN;
+ const auto beforeSend=millis();
+ assert(write(payload,20)==0 && connected() && millis()==beforeSend);
+ sendResult=3;assert(write(payload,20)==3);
+ sendResult=-1;sendError=ECONNRESET;assert(write(payload,20)==0 && !client.live);
+ sendResult=-2;sendError=0;assert(acceptConnection());
  // Association alone is not sufficient: DHCP may still have no address.
  WiFi.ip=0; WiFi.callback(5,{{2}}); serviceNetwork();
  assert(!serverRunning); assert(!connected()); assert(!acceptConnection());

@@ -1,6 +1,9 @@
 #include "transport.h"
 #include <WiFi.h>
 #include <atomic>
+#include <lwip/sockets.h>
+#include <errno.h>
+#include "tx_options.h"
 #if defined(PQC_USE_WIFI)
 // Build flags may supply all four settings (also used by native tests).
 #elif __has_include("wifi_config.h")
@@ -87,7 +90,19 @@ void commandEnd() {
 }
 size_t write(const uint8_t *data, size_t length) {
   const uint32_t started = millis();
-  const size_t result = io().write(data, length);
+  size_t result = 0;
+  if (!PQC_USE_WIFI) {
+    result = io().write(data, length);
+  } else if (connected()) {
+    // One nonblocking attempt. protocol::writeExact owns retry/deadline policy.
+    const int sent = send(client.fd(), data, length, MSG_DONTWAIT);
+    if (sent > 0) result = static_cast<size_t>(sent);
+    else if (sent < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
+      const int error = errno;
+      Serial.printf("[TCP_SEND] fatal errno=%d requested=%u\n", error, static_cast<unsigned int>(length));
+      closeConnection();
+    }
+  }
   if (PQC_USE_WIFI) {
     const uint32_t elapsed = millis() - started;
     ++writeCalls; writtenBytes += result; writeMs += elapsed;
@@ -97,6 +112,8 @@ size_t write(const uint8_t *data, size_t length) {
   return result;
 }
 bool begin() {
+  Serial.printf("[BUILD] tx-nonblocking-v3 coalesce=%u frame_trace=%u\n",
+      PQC_COALESCE_SMALL_FRAMES, PQC_TRACE_FRAME_TX);
   if (!PQC_USE_WIFI) return true;
   WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info) {
     // No blocking I/O, TCP manipulation or crypto state changes here.
