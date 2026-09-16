@@ -36,6 +36,7 @@ CAMERA_METADATA_SIZE = 20
 CAMERA_MAGIC = b"CAM2"
 MAX_JPEG_SIZE = 1024 * 1024
 
+# remind me delete the output when this project done, too much message for test the performance
 
 @dataclass(frozen=True)
 class CameraMetadata:

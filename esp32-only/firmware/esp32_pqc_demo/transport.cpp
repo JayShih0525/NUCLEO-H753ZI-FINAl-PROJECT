@@ -112,7 +112,7 @@ size_t write(const uint8_t *data, size_t length) {
   return result;
 }
 bool begin() {
-  Serial.printf("[BUILD] tx-nonblocking-v3 coalesce=%u frame_trace=%u\n",
+  Serial.printf("[BUILD] tx-response-v4 coalesce=%u frame_trace=%u\n",
       PQC_COALESCE_SMALL_FRAMES, PQC_TRACE_FRAME_TX);
   if (!PQC_USE_WIFI) return true;
   WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info) {

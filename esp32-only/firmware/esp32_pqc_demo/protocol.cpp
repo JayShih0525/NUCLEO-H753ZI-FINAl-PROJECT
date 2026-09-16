@@ -232,14 +232,47 @@ void writeTxInfo() {
 
 void writeLine(const char *line) {
   if (demo_transport::wifiMode()) {
-    if (!writeExact(reinterpret_cast<const uint8_t *>(line), strlen(line)) ||
-        !writeExact(reinterpret_cast<const uint8_t *>("\n"), 1)) {
+    if (!writeFormatted("%s\n", line)) {
       demo_transport::closeConnection();
     }
   } else {
     demo_transport::io().println(line);
   }
   demo_transport::flush();
+}
+
+bool writeResponse(const char *text, const ResponseFrame *frames, size_t count) {
+  if (!text || (count && !frames)) return false;
+  for (size_t i = 0; i < count; ++i) {
+    if (frames[i].length > UINT32_MAX || (frames[i].length && !frames[i].data)) return false;
+  }
+  // Bounded staging: no full-JPEG allocation, no unbounded task stack growth.
+  uint8_t buffer[4096];
+  size_t used = 0;
+  auto append = [&](const uint8_t *data, size_t length) -> bool {
+    while (length) {
+      const size_t amount = length < sizeof(buffer)-used ? length : sizeof(buffer)-used;
+      memcpy(buffer+used, data, amount);
+      used += amount; data += amount; length -= amount;
+      if (used == sizeof(buffer)) {
+        if (!writeExact(buffer, used)) return false;
+        used = 0;
+      }
+    }
+    return true;
+  };
+  bool ok = append(reinterpret_cast<const uint8_t *>(text), strlen(text));
+  for (size_t i = 0; ok && i < count; ++i) {
+    const size_t length = frames[i].length;
+    const uint8_t prefix[4] = {static_cast<uint8_t>(length >> 24),
+        static_cast<uint8_t>(length >> 16), static_cast<uint8_t>(length >> 8),
+        static_cast<uint8_t>(length)};
+    ok = append(prefix, 4) && append(frames[i].data, length);
+  }
+  if (ok && used) ok = writeExact(buffer, used);
+  if (!ok) demo_transport::closeConnection();
+  else demo_transport::flush();
+  return ok;
 }
 
 bool writeFormatted(const char *format, ...) {

@@ -183,7 +183,14 @@ def run_devices(devices, output, seconds, rekey, memory, display, *, popen=subpr
                        devices=[dict(name=w['name'], pid=w['process'].pid,
                                      exit_code=w['process'].returncode, forced_stop=w['forced_stop'],
                                      fingerprint=w['fingerprint'], command=w['command']) for w in workers])
+        # Offline only: all processes have exited and their logs are closed.
+        from host.multi_summary import enrich_summary
+        try:
+            enrich_summary(output, summary)
+        except Exception as error:
+            summary['aggregation_error'] = str(error)
         (output / 'summary.json').write_text(json.dumps(summary, indent=2), encoding='utf-8')
+        print(f'Summary: {output / "summary.json"}', flush=True)
     if failure:
         print(f'Launcher error: {failure}', file=sys.stderr)
     return 130 if interrupted else int(bool(failure) or any(w['process'].returncode != 0 for w in workers))

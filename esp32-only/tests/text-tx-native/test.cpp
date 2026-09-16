@@ -17,6 +17,28 @@ size_t write(const uint8_t* p,size_t n){++calls;delay(sendDelay); n=std::min(n,l
 }
 int main(){
  using namespace demo_transport;
+ {
+  const uint8_t a[]={1,2,3};
+  const demo_protocol::ResponseFrame parts[]={{a,3},{nullptr,0}};
+  assert(demo_protocol::writeResponse("OK\n",parts,2));
+  assert(output==std::string("OK\n\0\0\0\3\1\2\3\0\0\0\0",14));
+  assert(calls==1);
+  output.clear();calls=0;
+  std::string large(9000,'x');
+  const demo_protocol::ResponseFrame big[]={{reinterpret_cast<const uint8_t*>(large.data()),large.size()},{a,3}};
+  std::string expected="OK\n";
+  expected.append("\0\0\x23\x28",4);expected+=large;
+  expected.append("\0\0\0\3\1\2\3",7);
+  assert(demo_protocol::writeResponse("OK\n",big,2));
+  assert(output==expected && calls==3);
+  output.clear();calls=0;limit=7;
+  assert(demo_protocol::writeResponse("OK\n",big,2));
+  assert(output==expected);
+  output.clear();calls=0;limit=0;
+  assert(!demo_protocol::writeResponse("OK\n",parts,2));
+  assert(!live && output.empty());
+  live=true;limit=std::numeric_limits<size_t>::max();calls=0;nowMs=0;
+ }
  assert(demo_protocol::writeFormatted("INFO proto=%d\n",4));
  assert(output=="INFO proto=4\n" && calls==1);
  output.clear();calls=0;limit=2;

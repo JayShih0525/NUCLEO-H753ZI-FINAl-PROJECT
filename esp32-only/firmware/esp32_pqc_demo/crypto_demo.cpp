@@ -316,7 +316,8 @@ void handleCameraCaptureEncrypted() {
   const size_t jpegLength = frame->len;
   releaseCameraFrame(frame);
   const bool rekeyRequired = recordSuccessfulMessage();
-  demo_protocol::writeFormatted(
+  char status[192];
+  const int statusLength = snprintf(status, sizeof(status),
       "OK epoch=%lu count=%lu rekey=%u frame=%lu jpeg=%u elapsed_ms=%lu\n",
       static_cast<unsigned long>(g_sessionEpoch),
       static_cast<unsigned long>(g_messageCount),
@@ -324,11 +325,11 @@ void handleCameraCaptureEncrypted() {
       static_cast<unsigned long>(frameId),
       static_cast<unsigned int>(jpegLength),
       static_cast<unsigned long>(millis() - started));
-  demo_transport::flush();
-  const bool sent = demo_protocol::writeFrame(metadata, sizeof(metadata), "camera.metadata") &&
-      demo_protocol::writeFrame(g_nonce, sizeof(g_nonce), "camera.nonce") &&
-      demo_protocol::writeFrame(encrypted, jpegLength, "camera.ciphertext") &&
-      demo_protocol::writeFrame(g_tag, sizeof(g_tag), "camera.tag");
+  const demo_protocol::ResponseFrame parts[] = {
+      {metadata, sizeof(metadata)}, {g_nonce, sizeof(g_nonce)},
+      {encrypted, jpegLength}, {g_tag, sizeof(g_tag)}};
+  const bool sent = statusLength > 0 && static_cast<size_t>(statusLength) < sizeof(status) &&
+      demo_protocol::writeResponse(status, parts, 4);
 
   secureZero(encrypted, jpegLength);
   heap_caps_free(encrypted);
@@ -605,9 +606,9 @@ void handleAuthKem() {
   size_t signatureLength = 0;
   if (MLDSA44::sign(g_signature, &signatureLength, message, sizeof(message), g_dsaSecretKey) != 0 ||
       signatureLength != MLDSA44::SIGNATURE_SIZE) { sendError("AUTH_SIGN_FAILED"); return; }
-  demo_protocol::writeLine("OK");
-  demo_protocol::writeFrame(g_kemPublicKey, KEM_PUBLIC_KEY_SIZE);
-  demo_protocol::writeFrame(g_signature, signatureLength);
+  const demo_protocol::ResponseFrame parts[] = {
+      {g_kemPublicKey, KEM_PUBLIC_KEY_SIZE}, {g_signature, signatureLength}};
+  if (!demo_protocol::writeResponse("OK\n", parts, 2)) clearSessionSecret();
 }
 
 void handleConfirmSession() {
@@ -631,8 +632,8 @@ void handleConfirmSession() {
                       g_sharedSecret, sizeof(g_sharedSecret), message, sizeof(message), proof) != 0) {
     sendError("CONFIRM_FAILED"); return;
   }
-  demo_protocol::writeLine("OK");
-  demo_protocol::writeFrame(proof, sizeof(proof));
+  const demo_protocol::ResponseFrame parts[] = {{proof, sizeof(proof)}};
+  if (!demo_protocol::writeResponse("OK\n", parts, 1)) clearSessionSecret();
 }
 
 void handleCommand(const char *command) {

@@ -163,21 +163,46 @@ def get_frame(protocol: SerialProtocol, command: str, expected_size: int) -> byt
 
 
 def establish_session(protocol: SerialProtocol) -> tuple[bytes, bytes, bytes, int]:
+    if not getattr(protocol, 'profile', False):
+        return _establish_session(protocol)
+    protocol._handshake_timings = {}
+    started = time.perf_counter()
+    outcome = 'error'
+    try:
+        result = _establish_session(protocol)
+        outcome = 'ok'
+        return result
+    finally:
+        values = protocol._handshake_timings
+        values['total_ms'] = (time.perf_counter() - started) * 1000
+        protocol.trace('handshake_timing', outcome=outcome, **values)
+        print('[TIMING handshake] outcome=' + outcome + ' ' +
+              ' '.join(f'{name}={value:.3f}' for name, value in values.items()))
+        del protocol._handshake_timings
+
+
+def _establish_session(protocol: SerialProtocol) -> tuple[bytes, bytes, bytes, int]:
+    from host.device_auth import timing_mark
     kem_public_key = authenticated_kem_key(protocol)
 
     started = time.perf_counter()
     kem_ciphertext, shared_secret = ml_kem_768.encrypt(kem_public_key)
     host_elapsed = (time.perf_counter() - started) * 1000
+    timing_mark(protocol, 'host_encapsulate_ms', started)
 
     if len(kem_ciphertext) != KEM_CIPHERTEXT_SIZE:
         raise ProtocolError(f"Unexpected KEM ciphertext size: {len(kem_ciphertext)}")
     if len(shared_secret) != SHARED_SECRET_SIZE:
         raise ProtocolError(f"Unexpected shared secret size: {len(shared_secret)}")
 
+    started = time.perf_counter()
     protocol.send_line("KEM_DECAPSULATE")
     protocol.expect("READY")
+    timing_mark(protocol, 'kem_ready_ms', started)
+    started = time.perf_counter()
     protocol.send_frame(kem_ciphertext)
     device_result = protocol.expect_prefix("KEM_OK ")
+    timing_mark(protocol, 'kem_response_ms', started)
     values = parse_key_values(device_result, "KEM_OK ")
     try:
         epoch = int(values["epoch"])

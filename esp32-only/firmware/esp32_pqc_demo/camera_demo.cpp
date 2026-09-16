@@ -102,13 +102,17 @@ bool cameraIsReady() {
   return g_cameraReady;
 }
 
+// 800 * 600
 bool setCameraPhotoMode() {
   return applyMode(FRAMESIZE_SVGA, 12, true);
 }
 
+// 320*240
 bool setCameraStreamMode() {
   return applyMode(FRAMESIZE_QVGA, 15, false);
 }
+
+// need to try the FRAMESIZE_XGA || FRAMESIZE_SXGA, a great framesize for human, QVGA is hard to read af
 
 const char *cameraModeName() {
   return g_photoMode ? "PHOTO" : "STREAM";

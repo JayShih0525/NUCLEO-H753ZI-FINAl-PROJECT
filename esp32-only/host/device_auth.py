@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import os
+import time
 from pathlib import Path
 
 from pqcrypto.sign import ml_dsa_44
@@ -51,16 +52,30 @@ def verify_proof(trusted_key: bytes, challenge: bytes, kem_key: bytes, signature
         raise ProtocolError('Device authentication rejected: identity, challenge or KEM key does not match')
 
 
+def timing_mark(protocol, name, started):
+    timings = getattr(protocol, '_handshake_timings', None)
+    if isinstance(timings, dict):
+        timings[name] = (time.perf_counter() - started) * 1000
+
+
 def authenticated_kem_key(protocol) -> bytes:
     trusted = protocol_trusted_key(protocol)
     challenge = os.urandom(32)
+    started = time.perf_counter()
     protocol.send_line('AUTH_KEM')
     protocol.expect('READY')
+    timing_mark(protocol, 'auth_ready_ms', started)
+    started = time.perf_counter()
     protocol.send_frame(challenge)
     protocol.expect('OK')
+    timing_mark(protocol, 'auth_response_ms', started)
+    started = time.perf_counter()
     kem_key = protocol.receive_frame(1184)
     signature = protocol.receive_frame(2420)
+    timing_mark(protocol, 'auth_receive_ms', started)
+    started = time.perf_counter()
     verify_proof(trusted, challenge, kem_key, signature)
+    timing_mark(protocol, 'auth_verify_ms', started)
     print(f'[PASS] Device identity and fresh KEM proof verified: {fingerprint(trusted)}')
     return kem_key
 
@@ -79,12 +94,18 @@ def confirmation_message(challenge, kem_key, ciphertext, epoch):
 def confirm_session(protocol, shared_secret, kem_key, ciphertext, epoch):
     challenge = os.urandom(32)
     message = confirmation_message(challenge, kem_key, ciphertext, epoch)
+    started = time.perf_counter()
     protocol.send_line('CONFIRM_SESSION')
     protocol.expect('READY')
+    timing_mark(protocol, 'confirm_ready_ms', started)
+    started = time.perf_counter()
     protocol.send_frame(challenge)
     protocol.expect('OK')
     actual = protocol.receive_frame(32)
+    timing_mark(protocol, 'confirm_response_ms', started)
+    started = time.perf_counter()
     expected = hmac.digest(shared_secret, message, 'sha256')
     if not hmac.compare_digest(expected, actual):
         raise ProtocolError('Session key confirmation failed')
+    timing_mark(protocol, 'confirm_verify_ms', started)
     print(f'[PASS] Device possession of session key confirmed: epoch={epoch}')
