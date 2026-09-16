@@ -1,5 +1,7 @@
 # 現行檔案閱讀指南
 
+2026-09-16 新增：`host/multi_camera.py` 是 N 台程序啟動／收尾入口；`devices.example.json` 是裝置名稱與公鑰配對範例，`devices.json` 是本機設定；`tests/test_multi_camera.py` 驗證多程序隔離。操作見 [MULTI_CAMERA](../MULTI_CAMERA.md)。主線預設公鑰已改名 `host/camera1.pub`。
+
 路徑均相對 `esp32-only/`。本表是責任與使用關係盤點，不是對演算法或所有錯誤路徑的安全認證。進度與操作見 [README](../README.md)。
 
 ## 韌體：firmware/esp32_pqc_demo/

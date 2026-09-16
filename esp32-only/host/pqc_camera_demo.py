@@ -171,7 +171,8 @@ def parse_arguments() -> argparse.Namespace:
         description="Encrypted ESP32-S3-CAM photo and recording demo"
     )
     parser.add_argument("--port", default="COM3")
-    parser.add_argument('--trust-key', type=Path, help='trusted device .pub file; default: host/trusted_device.pub')
+    parser.add_argument('--trust-key', type=Path, help='trusted device .pub file; default: host/camera1.pub')
+    parser.add_argument('--device-name', default='ESP32-S3-CAM', help='label for this camera window')
     parser.add_argument('--host', help='ESP32 IP; selects TCP instead of UART')
     parser.add_argument('--tcp-port', type=int, default=9000)
     parser.add_argument("--baud", type=int, default=921600)
@@ -400,7 +401,7 @@ def run_once(args) -> int:
 
                 if args.display:
                     display_started = time.perf_counter()
-                    cv2.imshow("Encrypted ESP32-S3-CAM stream", image)
+                    cv2.imshow(f"Encrypted {getattr(args, 'device_name', 'ESP32-S3-CAM')} stream", image)
                     quit_requested = cv2.waitKey(1) & 0xFF in (ord("q"), 27)
                     if protocol.profile:
                         protocol.trace('display_timing', elapsed_ms=(time.perf_counter() - display_started) * 1000)
@@ -473,6 +474,12 @@ def run_once(args) -> int:
 
 
 def main() -> int:
+    # The multi-device launcher uses CTRL_BREAK for cooperative Windows shutdown.
+    import signal
+    if hasattr(signal, 'SIGBREAK'):
+        def interrupted(signum, frame):
+            raise KeyboardInterrupt
+        signal.signal(signal.SIGBREAK, interrupted)
     import cv2
     from host.wifi_recovery import supervise
     args = parse_arguments()

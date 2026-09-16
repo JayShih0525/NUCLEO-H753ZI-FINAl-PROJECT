@@ -35,7 +35,7 @@ def supervise(args, run_once, cv2):
                     panel = np.zeros((240, 640, 3), dtype=np.uint8)
                     cv2.putText(panel, 'Disconnected - reconnecting (Q / Esc to quit)',
                                 (12, 120), cv2.FONT_HERSHEY_SIMPLEX, .55, (0, 200, 255), 1)
-                    cv2.imshow('Encrypted ESP32-S3-CAM stream', panel)
+                    cv2.imshow(f"Encrypted {getattr(args, 'device_name', 'ESP32-S3-CAM')} stream", panel)
                 delay_end = min(deadline, time.monotonic() + min(2 ** min(attempt, 3), 8))
                 while time.monotonic() < delay_end:
                     if args.display and cv2.waitKey(50) & 0xff in (ord('q'), 27):

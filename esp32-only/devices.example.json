@@ -1,0 +1,6 @@
+{
+  "devices": [
+    {"name": "camera1", "host": "REPLACE_WITH_CAMERA1_IP", "port": 9000, "trust_key": "host/camera1.pub", "enabled": false},
+    {"name": "camera2", "host": "REPLACE_WITH_CAMERA2_IP", "port": 9000, "trust_key": "host/camera2.pub", "enabled": false}
+  ]
+}

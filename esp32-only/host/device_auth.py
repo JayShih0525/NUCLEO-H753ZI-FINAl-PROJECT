@@ -11,7 +11,7 @@ from host.serial_protocol import ProtocolError
 
 DOMAIN = b'esp32-only/auth-kem/v1\x00'
 CONFIRM_DOMAIN = b'esp32-only/confirm/v1\x00'
-TRUST_FILE = Path(__file__).resolve().parent / 'trusted_device.pub'
+TRUST_FILE = Path(__file__).resolve().parent / 'camera1.pub'
 
 
 def fingerprint(key: bytes) -> str:

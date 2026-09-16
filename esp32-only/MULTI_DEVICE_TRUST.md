@@ -1,5 +1,7 @@
 # 每個程序選擇自己的裝置信任公鑰
 
+> 2026-09-16：主線預設檔名已改為 `host/camera1.pub`，下方 `trusted_device.pub` 是舊檔名。現已新增 [N 台共用啟動器](MULTI_CAMERA.md)，不用手動開 N 個 terminal；公鑰隔離原則不變，雙向 Host 認證仍未加入。
+
 不必再編輯 device_auth.py。預設已恢復第一台 host/trusted_device.pub；第二台使用 host/camera2.pub，既有檔案未覆蓋。--trust-key 可用於相機 Host、WiFi 文字 Host、UART Host 與 benchmark。
 
 在 esp32-only 執行，IP 請依每台 Monitor 當前輸出替換：

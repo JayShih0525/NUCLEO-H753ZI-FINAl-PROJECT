@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true)][string]$DeviceIp,
-    [string]$TrustKey = 'host/trusted_device.pub',
+    [string]$TrustKey = 'host/camera1.pub',
     [ValidateRange(1, 65535)][int]$TcpPort = 9000,
     [ValidateRange(1, 2147483647)][int]$Seconds = 60,
     [ValidateRange(1, 100000)][int]$RekeyEvery = 10,
