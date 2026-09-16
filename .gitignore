@@ -33,6 +33,8 @@
 /esp32-only/host/trusted_device.pub
 /esp32-only/host/camera*.pub
 /esp32-only/firmware/esp32_pqc_demo/wifi_config.h
+/esp32-only/baselines/*/firmware/esp32_pqc_demo/wifi_config.h
+/esp32-only/baselines/*/host/*.pub
 
 # Generated test recordings and diagnostic logs
 /log_*.txt

@@ -1,0 +1,5 @@
+cryptography==49.0.0
+numpy==2.5.0
+opencv-python==4.13.0.92
+pqcrypto==0.4.0
+pyserial==3.5

@@ -1,0 +1,327 @@
+{
+  "created": "2026-09-16",
+  "source_commit": "1aff87038a4c894dae639cd9187b0cb6e2f5e6a3",
+  "description": "Single-device WiFi source snapshot; local credentials and toolchains excluded",
+  "files": [
+    {
+      "path": "firmware/esp32_pqc_demo/camera_demo.cpp",
+      "sha256": "8832bcbd0d20f3ecd29940caf87194e6fe801284329e3b7d3246c30abd2c6413"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/camera_demo.h",
+      "sha256": "2b0a9e03a5cbcb308e19c0a31f5ebb2470cb7bb58316ef4125afbaf14b918644"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/crypto_demo.cpp",
+      "sha256": "27de56ec03e0109a389155f82a7aa0a175dabcb08a608563f673fd78a44fdd2e"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/crypto_demo.h",
+      "sha256": "a05dcc0483440ea66c20f98b23a41262327916d30a145c1f8f0c8e89371e3e86"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/device_identity.cpp",
+      "sha256": "105cb5be9e612c3822f84f5dd98e580f9cb2b7657ed9d008353d4546befa72ea"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/device_identity.h",
+      "sha256": "04218b00b536efaa2ab545abdace34a03c7d682e65483788b4822d6ff1f16679"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/esp32_pqc_demo.ino",
+      "sha256": "63185c6c5426f6572e235abd0ac4765e57ca1d9ab2e5d033238c55dff0daebae"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/frame_writer.h",
+      "sha256": "246ab55bb3a51fb8ef34be821a4c6918943062478c473a98ad402dedd7dea2d9"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/protocol.cpp",
+      "sha256": "2f740da3d48496e8576bf42365c31da52d5e0da711ee720dbb1d3006dc9119b4"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/protocol.h",
+      "sha256": "1a58e0a10702d6016005daaa19a1eef47b3cbdeed52566226ba6fcd8052e63bd"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/src/mlkem768/api.h",
+      "sha256": "b02e6660cac58d395ca63eaf4ebaaaf810b1406e380df8ed6f3cfa07c8f2681f"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/src/mlkem768/cbd.c",
+      "sha256": "f3df4ed60b8519074fe5a96d5456c2fdf8373950096e6a6d31ce720a6db44773"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/src/mlkem768/cbd.h",
+      "sha256": "082478f4b5a6161639b459f1d9ec69ca593fe6bfeee87f0f674cdf89b9a337ce"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/src/mlkem768/compat.h",
+      "sha256": "afba9b7e6edae71b2628cc35aa98f1a2f4bada3ff23eee642e0d98008faa0898"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/src/mlkem768/fips202.c",
+      "sha256": "a7f7b5bdaca8b3a0b8e67e285e55d1cef14baccefcbf61e7fe574e16a81e9c2b"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/src/mlkem768/fips202.h",
+      "sha256": "3cbe0628f9ed77d76dd5154047fb2eebbe4ca8e74e6f5e2804930870c993f0b5"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/src/mlkem768/indcpa.c",
+      "sha256": "79afdf48cf566bbfec16dc04cc51413f6945a883b2aac9b4781faf11ae689794"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/src/mlkem768/indcpa.h",
+      "sha256": "1300ade72f371a9d15fab01cde8b0be92fc8a89e0b785d915f92a4cb8aadd78e"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/src/mlkem768/kem.c",
+      "sha256": "def4d3a2b1905d7d16bc4109c4d01a2141e139049dc58441a16180017ec507c4"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/src/mlkem768/kem.h",
+      "sha256": "843996f0cacbf363bc42b6a1640edeee2f72c60a2d5d274334b659a71f525718"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/src/mlkem768/LICENSE",
+      "sha256": "9f962e11db71778d06cc5bf1753959a6ed2aaef8a7c2da314689ec51b6b3fd78"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/src/mlkem768/ntt.c",
+      "sha256": "858e4ed3a5e10481b642d9424af20d1d98027d57766a8197f1a4ff6ae897626a"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/src/mlkem768/ntt.h",
+      "sha256": "3518c6b4878884f4d97a4292b0147ae50b8b03a3be02df3b3a51ce2550116341"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/src/mlkem768/params.h",
+      "sha256": "0ae0a6696f415d7efd246221e669b6723c772d7c88c8c9d8ec651d31310fa75f"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/src/mlkem768/poly.c",
+      "sha256": "eadcd20ad1e12e3c10451f45ab038afa5399e937fed788dfaaa0f7ec790c5f8d"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/src/mlkem768/poly.h",
+      "sha256": "bd85d43a88489b283c2a5402cbb0ab37e8cdd4005498a0fedd7f36cf801807bd"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/src/mlkem768/polyvec.c",
+      "sha256": "6b6bb77c14a884ba15f5d6905e5a890a8b4923a1cff2442f342faf070beb4a0d"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/src/mlkem768/polyvec.h",
+      "sha256": "96c8f91bff92869b9d33ea7b49ed7126104f0164d043a630be09efdc056f45a2"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/src/mlkem768/randombytes.c",
+      "sha256": "15a8d6f49f3a1e83d83794535dd96905399a2a230055f281ed44f371cd577b52"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/src/mlkem768/randombytes.h",
+      "sha256": "b416b1bbc3363a76b3322e49aaae89d42e478c81880fb4019603f5667c6adef3"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/src/mlkem768/reduce.c",
+      "sha256": "7051998dc605e02bfb88c4ed7d341f4c6b492622c4a12385d8bdf223a62e3960"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/src/mlkem768/reduce.h",
+      "sha256": "eec885deb13609bc2480e09007c3b76fab9b7e8324fcae3225289ffb37ac49ad"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/src/mlkem768/symmetric-shake.c",
+      "sha256": "6a9ac3e27375b203842da292a366bd35de269c39a27af8d08cc13a68469f8349"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/src/mlkem768/symmetric.h",
+      "sha256": "77bd34cb2b6770df8f0401c29bed52b229c1fa99e804c90233c0a8ef3cbe1b43"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/src/mlkem768/UPSTREAM.md",
+      "sha256": "324c4fc7b032a0daa0f53191edf90df42b729c7fd2e3b704367e6a609a16fe4a"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/src/mlkem768/verify.c",
+      "sha256": "76e7e05b1527315a7e1cfe72cdc84535aa718db760560791bb7744867ecc8847"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/src/mlkem768/verify.h",
+      "sha256": "089d00642bc3c2e1e48d66c2b7fa3bbbe614b19eedc96a7556498d8d22beaac9"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/transport.cpp",
+      "sha256": "34565bb0bd4dfa8ab70e31271588ea934935fe708fbc48aab21416d359e1ff36"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/transport.h",
+      "sha256": "40a296536dd50981056b91a00e579b3d1c9e30cb3d1e2f038f75d4906ae337e8"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/tx_options.h",
+      "sha256": "b448c1ef9c97043b77758c39910a70d15c02fc71d047d8a3afa62368e256fbb0"
+    },
+    {
+      "path": "firmware/esp32_pqc_demo/wifi_config.example.h",
+      "sha256": "6cbb9a03d32af09ebdd26c5cf01503db3e8f7c912b3289ed8a022e5da5e8900d"
+    },
+    {
+      "path": "host/__init__.py",
+      "sha256": "2c9156ed8e700f7558c4c4b445f7a3ae8ba527a3e996170f67fe2ccf93de834f"
+    },
+    {
+      "path": "host/.gitignore",
+      "sha256": "de3787e4d527ddcc651da60869447e05ce884c57b16a609127f3efc92fc7051f"
+    },
+    {
+      "path": "host/camera_recovery.py",
+      "sha256": "c436c6a40eeef22a2145275aa8c89b17b268a1e5a33cae200eeb61b3781f8a1c"
+    },
+    {
+      "path": "host/camera_replay.py",
+      "sha256": "1a58e3cc9e3ee231133ee470fa335d474abc284d3ec2d2ac7ebf3e4e95242c94"
+    },
+    {
+      "path": "host/crypto_ops.py",
+      "sha256": "08638f8647e042e18a9aeda9b474b48e7170e913424a21dcc5e22e8a7dd2bdf0"
+    },
+    {
+      "path": "host/device_auth.py",
+      "sha256": "0cfbc357429f6095163a4b1dde149abdf2452ce0b3f0324f15e5b874806c1f04"
+    },
+    {
+      "path": "host/enroll_device.py",
+      "sha256": "9ff8d0e35398e7a3abad80e3f7601a19445c8d6df9bd6d213b00dce690b125bf"
+    },
+    {
+      "path": "host/pqc_camera_demo.py",
+      "sha256": "7ea14e541c6964006693bd65445361c2ae4c7aac22599e2570b32439a0d37a7a"
+    },
+    {
+      "path": "host/pqc_host_demo.py",
+      "sha256": "867d27cb3d700a2c823bdbda73f92ed36d5803b7b5011911f5f163ca028cacfe"
+    },
+    {
+      "path": "host/pqc_wifi_demo.py",
+      "sha256": "7c33d7dc542bdbeff8ab9a8bf18f6b548719960ddf8e06a38cb35e6e11f49af4"
+    },
+    {
+      "path": "host/run_diagnostics.py",
+      "sha256": "6b3d680a41f581de931dca4bc8c9907f2d1b6cc9852b31d14dc7191e88812e4d"
+    },
+    {
+      "path": "host/serial_connection.py",
+      "sha256": "c66f6355599fdd35abe322ec383e15c1968987b65ee3fdb20abc598c0dea256c"
+    },
+    {
+      "path": "host/serial_protocol.py",
+      "sha256": "30d2d075df150ccda031324c0199108ca34c29569a44b54bd0e1aeba6d1f0a18"
+    },
+    {
+      "path": "host/tcp_connection.py",
+      "sha256": "ae09035b4bf6ddfe0854e665ece5867e8477c3b01e9e219c59baaf7fa20ce61a"
+    },
+    {
+      "path": "host/wifi_recovery.py",
+      "sha256": "a8e5701b8c3e0275c8081edfe810ee79f4102d42c2ed4c8e0f7b5929fc51f612"
+    },
+    {
+      "path": "README.md",
+      "sha256": "7cc46961a112b864228303e1fcc60f704ed09a16ccedd109c287d06c4a0f6dfd"
+    },
+    {
+      "path": "requirements.txt",
+      "sha256": "df3c6eb39d6126c51deb63282582e0f9f85cb4a38f5365fec58a62cf093765a6"
+    },
+    {
+      "path": "run_camera.ps1",
+      "sha256": "00f994de703372a6d6171a1c90b363008adb0767c727872ff9ebaa523aee1755"
+    },
+    {
+      "path": "tests/test_camera_recovery_flow.py",
+      "sha256": "bbe78458092aee9115840239117220350e61ad9440727c43a27bb1a9177a7c5b"
+    },
+    {
+      "path": "tests/test_camera_recovery.py",
+      "sha256": "42f54fc87e6ad888969615df2e79ab3f3159357f73929371b53a7b5550d57c08"
+    },
+    {
+      "path": "tests/test_camera_replay.py",
+      "sha256": "693af3e95bad0c2e9d50463de43f96d051b5b1b997d9f61c7b1200e74c031355"
+    },
+    {
+      "path": "tests/test_device_auth.py",
+      "sha256": "81e866c0957d6ce62cea423765851267ab1277f60c9df074d4a10f869023a749"
+    },
+    {
+      "path": "tests/test_host_crypto.py",
+      "sha256": "29e082cb8e2d0c607aa00d253bba1ac33fbbd352d33718d96ebf88a0c27f0b2d"
+    },
+    {
+      "path": "tests/test_run_diagnostics.py",
+      "sha256": "1b90e74a3e1f61d0de842792cf00445b69c8cff058ae89d37408f3a7adbc784c"
+    },
+    {
+      "path": "tests/test_serial_connection.py",
+      "sha256": "a64a134b2cd0441e4f91d01b23ac0aca68dceae922fc473432320d759565702b"
+    },
+    {
+      "path": "tests/test_serial_diagnostics.py",
+      "sha256": "57cfd703325d8b9a2b0dcfcc2784e6ba68f4c786cac5957677a918bedc54d989"
+    },
+    {
+      "path": "tests/test_trust_selection.py",
+      "sha256": "1cb035587cb48ab2382db5b509fbeba19b028c03169c20276be6a9781f14ffc7"
+    },
+    {
+      "path": "tests/test_wifi_message.py",
+      "sha256": "29b78881148b0e0919146339dbd17322dfc08470863c13e284a528c620f67c72"
+    },
+    {
+      "path": "tests/test_wifi_recovery.py",
+      "sha256": "5d08bd9b6d01433aba98bad02f53289cd24580801fb6e1edc1b548006d575294"
+    },
+    {
+      "path": "tests/text-tx-native/Arduino.h",
+      "sha256": "6002a72a68881c676057ee05016fde291954ca742712019115f8df10aa9176fa"
+    },
+    {
+      "path": "tests/text-tx-native/esp_system.h",
+      "sha256": "290c761f32abf762a9fb1fc9c974ba2f6b5f9c44ecb2d5a867924ce1774426c2"
+    },
+    {
+      "path": "tests/text-tx-native/esp_timer.h",
+      "sha256": "b2bdfb43a66f46d5adf90d820f3ac10d213ef5f6b2e5c17a85ea0fc80038150f"
+    },
+    {
+      "path": "tests/text-tx-native/test.cpp",
+      "sha256": "dd60a65894e60c9c3807df41778d9fc5cfaa489a6f02c932e19265271f377554"
+    },
+    {
+      "path": "tests/wifi-reconnect-native/Arduino.h",
+      "sha256": "a8ece0a7c403da7a3d4fbbffe06881632a26b9ca12aa6c4c0433ddc6b0321e9b"
+    },
+    {
+      "path": "tests/wifi-reconnect-native/frame_writer_test.cpp",
+      "sha256": "9d44ca50589fd2744b50c03a067cd0db94ca19700c6687dda8f0598f6be5ecd1"
+    },
+    {
+      "path": "tests/wifi-reconnect-native/lwip/sockets.h",
+      "sha256": "5c49029704b465962f3af2867f7b5727fc60b11bae417a80e0091bc01a3b2ee8"
+    },
+    {
+      "path": "tests/wifi-reconnect-native/test.cpp",
+      "sha256": "74cda587ef05721d104bebb141b2859908ed25181bef4b2783db7012677eba4e"
+    },
+    {
+      "path": "tests/wifi-reconnect-native/WiFi.h",
+      "sha256": "13a38736eb6ea57075623dcd753ed539cdd046a44b3c7c546313862e3f05bbc2"
+    },
+    {
+      "path": "verify_snapshot.ps1",
+      "sha256": "fa2a4aa6eff11b9947e5fc39e12caee76da9f0ba0a5df1813d2429833b963f20"
+    }
+  ]
+}
