@@ -7,6 +7,22 @@ from host.multi_summary import enrich_summary
 
 
 class SummaryTests(unittest.TestCase):
+    def test_pipeline_metrics_keep_overlap_separate_from_blocking_rekey(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root/'camera1').mkdir()
+            rows = [dict(event='pipeline_offer', keygen_ms=8, sign_ms=30),
+                    dict(event='pipeline_prepared', decap_ms=10, prepare_wall_ms=150, worker_stack_min=6000),
+                    dict(event='pipeline_boundary', wait_ms=0),
+                    dict(event='pipeline_switch', ready_ahead=True, boundary_to_verified_ms=25),
+                    dict(event='pipeline_switch', ready_ahead=False, boundary_to_verified_ms=125)]
+            (root/'camera1'/'trace.jsonl').write_text('\n'.join(map(json.dumps, rows)), encoding='utf-8')
+            result = enrich_summary(root, dict(devices=[dict(name='camera1')]))['devices'][0]['performance']
+            self.assertEqual(result['pipeline_ready_ahead_ratio'], .5)
+            self.assertEqual(result['pipeline_worker_stack_min_bytes'], 6000)
+            self.assertEqual(result['metrics']['pipeline_boundary_to_verified_ms']['mean'], 75)
+            self.assertNotIn('rekey_ms', result['metrics'])
+
     def test_pooled_samples_and_reconnect_gap(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

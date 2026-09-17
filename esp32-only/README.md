@@ -1,5 +1,9 @@
 # ESP32-S3 加密相機：目前狀態與閱讀入口
 
+> 2026-09-17：新增 [提前換鑰實驗與完整技術說明](performance-tests/REKEY_PIPELINE.md)。主線重新燒錄後，可用 `--rekey-mode pipeline` 啟用背景準備＋影像附帶換鑰；預設 `blocking` 保留原流程。新原型尚待實機驗收，凍結副本不變。
+
+> 前一版 [inline v5 握手](performance-tests/REKEY_INLINE.md) 已有雙台五分鐘完成紀錄 `20260917_181551_821053`，串流約 20.48／23.81 FPS，無重連。這是當輪結果，不保證所有網路都達到相同效能。下方舊 build marker 與進度屬歷程快照。
+
 > 2026-09-16 主線更新：新增 [N 台接收啟動器](MULTI_CAMERA.md)，IP 可在每次執行以 `--device 名稱=IP` 傳入；公鑰預設已改為 `host/camera1.pub`。目前完成本機程序隔離與測試，尚未完成多台 ESP32 同時實機驗收。下方歷史進度表是整理時快照。另見 [FPS 改善方向](docs/FPS_ROADMAP.md)。
 
 > 2026-09-16：已建立獨立的 [單台 WiFi 凍結基準](baselines/single-device-wifi-v1/README.md)。後續功能改進只修改主線，勿同步修改此副本。副本啟動器將紀錄寫到外部 diagnostics；保留的是目前可執行版本，不代表 WiFi 穩定性已通過驗收。

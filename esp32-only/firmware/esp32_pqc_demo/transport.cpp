@@ -112,7 +112,7 @@ size_t write(const uint8_t *data, size_t length) {
   return result;
 }
 bool begin() {
-  Serial.printf("[BUILD] tx-response-v4 coalesce=%u frame_trace=%u\n",
+  Serial.printf("[BUILD] rekey-pipeline-v1 coalesce=%u frame_trace=%u\n",
       PQC_COALESCE_SMALL_FRAMES, PQC_TRACE_FRAME_TX);
   if (!PQC_USE_WIFI) return true;
   WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info) {
@@ -121,6 +121,12 @@ bool begin() {
     disconnectGeneration.fetch_add(1);
   }, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
   WiFi.mode(WIFI_STA);
+
+  // 關閉 WiFi 省電模式
+if (!WiFi.setSleep(false)) {
+  Serial.println("[WIFI] disabling sleep failed");
+}
+
   WiFi.setAutoReconnect(false); // One retry owner: serviceNetwork().
   networkStarted = true; // Never route protocol bytes back to UART on WiFi loss.
   WiFi.begin(PQC_WIFI_SSID, PQC_WIFI_PASSWORD);

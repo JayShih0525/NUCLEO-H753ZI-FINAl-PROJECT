@@ -13,6 +13,8 @@
 #include "protocol.h"
 #include "camera_demo.h"
 #include "device_identity.h"
+#include "rekey_pipeline.h"
+#include "pipeline_rules.h"
 
 extern "C" {
 #include "src/mlkem768/api.h"
@@ -156,9 +158,20 @@ int aesDecrypt(const uint8_t key[SHARED_SECRET_SIZE],
   return result;
 }
 
+bool g_inlineHandshake = false;
+bool g_pipeline = false;
+uint8_t g_pipelineReply[3717];
+size_t g_pipelineReplyLength = 0;
+void clearSessionSecret();
+
 void sendError(const char *reason) {
   demo_protocol::writeFormatted("ERR %s\n", reason);
   demo_transport::flush();
+  if (g_inlineHandshake) {
+    // Inline payload may remain unread. Never parse it as another command.
+    clearSessionSecret();
+    demo_transport::closeConnection();
+  }
 }
 
 bool generateKemKeypair() {
@@ -171,6 +184,8 @@ bool generateKemKeypair() {
 }
 
 void clearSessionSecret() {
+  pending_rekey::discard();
+  g_pipeline = false;
   secureZero(g_sharedSecret, sizeof(g_sharedSecret));
   secureZero(g_sharedSecretCheck, sizeof(g_sharedSecretCheck));
   g_sessionReady = false;
@@ -204,10 +219,11 @@ void finishMessage(bool rekeyRequired) {
 
 void handleInfo() {
   demo_protocol::writeFormatted(
-      "INFO proto=4 kem=ML-KEM-768 aes=AES-256-GCM dsa=ML-DSA-44 "
+      "INFO proto=5 kem=ML-KEM-768 aes=AES-256-GCM dsa=ML-DSA-44 "
       "camera=OV2640 kem_pk=1184 kem_ct=1088 dsa_pk=1312 dsa_sig=2420 "
-      "rekey_every=%lu\n",
-      static_cast<unsigned long>(g_rekeyInterval));
+      "rekey_every=%lu inline_rekey=%u pipeline_rekey=%u\n",
+      static_cast<unsigned long>(g_rekeyInterval), demo_transport::wifiMode() ? 1u : 0u,
+      demo_transport::wifiMode() ? 1u : 0u);
   demo_transport::flush();
 }
 
@@ -260,6 +276,7 @@ void handleCameraMode(bool photoMode) {
 }
 
 void handleCameraCaptureEncrypted() {
+  if (g_messageCount >= g_rekeyInterval) { sendError("REKEY_REQUIRED"); return; }
   if (!g_sessionReady) {
     sendError("NO_SESSION");
     return;
@@ -327,9 +344,10 @@ void handleCameraCaptureEncrypted() {
       static_cast<unsigned long>(millis() - started));
   const demo_protocol::ResponseFrame parts[] = {
       {metadata, sizeof(metadata)}, {g_nonce, sizeof(g_nonce)},
-      {encrypted, jpegLength}, {g_tag, sizeof(g_tag)}};
+      {encrypted, jpegLength}, {g_tag, sizeof(g_tag)},
+      {g_pipelineReply, g_pipelineReplyLength}};
   const bool sent = statusLength > 0 && static_cast<size_t>(statusLength) < sizeof(status) &&
-      demo_protocol::writeResponse(status, parts, 4);
+      demo_protocol::writeResponse(status, parts, g_pipeline ? 5 : 4);
 
   secureZero(encrypted, jpegLength);
   heap_caps_free(encrypted);
@@ -339,7 +357,79 @@ void handleCameraCaptureEncrypted() {
     demo_transport::closeConnection();
     return;
   }
-  finishMessage(rekeyRequired);
+  if (!g_pipeline) finishMessage(rekeyRequired);
+}
+
+uint32_t readU32Be(const uint8_t *p) {
+  return (uint32_t(p[0]) << 24) | (uint32_t(p[1]) << 16) | (uint32_t(p[2]) << 8) | p[3];
+}
+bool pipelineMac(const uint8_t *key, const uint8_t *data, size_t n, uint8_t *out, bool reply = false) {
+  const char *domain = reply ? "esp32-only/pipeline-reply/v1" : "esp32-only/pipeline-request/v1";
+  mbedtls_md_context_t ctx;
+  mbedtls_md_init(&ctx);
+  const bool ok = mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(MBEDTLS_MD_SHA256), 1) == 0 &&
+      mbedtls_md_hmac_starts(&ctx, key, 32) == 0 &&
+      mbedtls_md_hmac_update(&ctx, reinterpret_cast<const uint8_t *>(domain), strlen(domain) + 1) == 0 &&
+      mbedtls_md_hmac_update(&ctx, data, n) == 0 && mbedtls_md_hmac_finish(&ctx, out) == 0;
+  mbedtls_md_free(&ctx);
+  return ok;
+}
+bool sameMac(const uint8_t *a, const uint8_t *b) {
+  uint8_t diff = 0;
+  for (size_t i = 0; i < 32; ++i) diff |= a[i] ^ b[i];
+  return diff == 0;
+}
+void handlePipelineCamera() {
+  // action:u8, capture:u8, epoch:u32, completed_count:u32, optional data,
+  // HMAC-SHA256(active key, preceding bytes). All integers are big endian.
+  uint8_t request[1130], expected[32];
+  size_t n = 0;
+  if (!g_sessionReady || !demo_protocol::readFrame(request, sizeof(request), n) || n < 42) {
+    sendError("PIPELINE_BAD_REQUEST"); return;
+  }
+  const uint8_t action = request[0], capture = request[1];
+  const size_t dataLength = n - 42;
+  if (!pending_rekey::validRequest(action, capture, dataLength, readU32Be(request + 2),
+                                  readU32Be(request + 6), g_sessionEpoch, g_messageCount,
+                                  g_rekeyInterval, g_pipeline) ||
+      !pipelineMac(g_sharedSecret, request, n - 32, expected) || !sameMac(expected, request + n - 32)) {
+    sendError("PIPELINE_REQUEST_AUTH_FAILED"); return;
+  }
+  if (action == 1) {
+    uint8_t binding[KEM_PUBLIC_KEY_SIZE + KEM_CIPHERTEXT_SIZE + 4], context[72];
+    memcpy(binding, g_kemPublicKey, KEM_PUBLIC_KEY_SIZE);
+    memcpy(binding + KEM_PUBLIC_KEY_SIZE, g_kemCiphertext, KEM_CIPHERTEXT_SIZE);
+    writeU32Be(binding + sizeof(binding) - 4, g_sessionEpoch);
+    if (mbedtls_md(mbedtls_md_info_from_type(MBEDTLS_MD_SHA256), binding, sizeof(binding), context) != 0) {
+      sendError("PIPELINE_HASH_FAILED"); return;
+    }
+    writeU32Be(context + 32, g_sessionEpoch); writeU32Be(context + 36, g_sessionEpoch + 1);
+    memcpy(context + 40, request + 10, 32);
+    if (!pending_rekey::start(context, g_dsaSecretKey)) { sendError("PIPELINE_START_FAILED"); return; }
+    g_pipeline = true;
+  } else if (action == 3) {
+    if (!pending_rekey::install(request + 10)) { sendError("PIPELINE_INSTALL_FAILED"); return; }
+  } else if (action == 4) {
+    if (!pending_rekey::promote(request + 10, g_kemPublicKey, g_kemSecretKey, g_kemCiphertext, g_sharedSecret)) {
+      sendError("PIPELINE_COMMIT_FAILED"); return;
+    }
+    ++g_sessionEpoch; g_messageCount = 0;
+  }
+  if (pending_rekey::state() == pending_rekey::FAILED) { sendError("PIPELINE_CRYPTO_FAILED"); return; }
+  const size_t bodyLength = pending_rekey::reply(g_pipelineReply);
+  uint8_t signedReply[10 + sizeof(g_pipelineReply)];
+  memcpy(signedReply, request, 10); memcpy(signedReply + 10, g_pipelineReply, bodyLength);
+  if (!pipelineMac(g_sharedSecret, signedReply, 10 + bodyLength, g_pipelineReply + bodyLength, true)) {
+    sendError("PIPELINE_REPLY_FAILED"); return;
+  }
+  g_pipelineReplyLength = bodyLength + 32;
+  if (capture) handleCameraCaptureEncrypted();
+  else {
+    const demo_protocol::ResponseFrame part[] = {{g_pipelineReply, g_pipelineReplyLength}};
+    if (!demo_protocol::writeResponse("PENDING\n", part, 1)) {
+      clearSessionSecret(); demo_transport::closeConnection();
+    }
+  }
 }
 
 void handleSetRekeyInterval(const char *command) {
@@ -364,8 +454,8 @@ void handleSetRekeyInterval(const char *command) {
   demo_transport::flush();
 }
 
-void handleKemDecapsulate() {
-  demo_protocol::writeLine("READY");
+void handleKemDecapsulate(bool inlinePayload = false) {
+  if (!inlinePayload) demo_protocol::writeLine("READY");
 
   size_t ciphertextLength = 0;
   if (!demo_protocol::readFrame(
@@ -489,6 +579,7 @@ void handleAesEncrypt() {
 }
 
 void handleDsaSign() {
+  pending_rekey::discard();  // Join background signing before using the library here.
   demo_protocol::writeLine("READY");
 
   size_t messageLength = 0;
@@ -499,8 +590,11 @@ void handleDsaSign() {
 
   // Prevent the generic signing demo from forging an AUTH_KEM proof for an
   // attacker-selected KEM key. The authentication domain includes its NUL.
-  if (messageLength >= sizeof(AUTH_DOMAIN) &&
-      memcmp(g_plaintext, AUTH_DOMAIN, sizeof(AUTH_DOMAIN)) == 0) {
+  constexpr char PIPELINE_AUTH[] = "esp32-only/pipeline-auth/v1";
+  if ((messageLength >= sizeof(AUTH_DOMAIN) &&
+       memcmp(g_plaintext, AUTH_DOMAIN, sizeof(AUTH_DOMAIN)) == 0) ||
+      (messageLength >= sizeof(PIPELINE_AUTH) &&
+       memcmp(g_plaintext, PIPELINE_AUTH, sizeof(PIPELINE_AUTH)) == 0)) {
     sendError("RESERVED_AUTH_DOMAIN");
     return;
   }
@@ -594,9 +688,9 @@ void resetSession() {
   demo_protocol::writeLine("OK");
 }
 
-void handleAuthKem() {
+void handleAuthKem(bool inlinePayload = false) {
   if (!g_kemKeyReady) { sendError("KEM_KEY_UNAVAILABLE"); return; }
-  demo_protocol::writeLine("READY");
+  if (!inlinePayload) demo_protocol::writeLine("READY");
   uint8_t message[sizeof(AUTH_DOMAIN) + 32 + KEM_PUBLIC_KEY_SIZE];
   memcpy(message, AUTH_DOMAIN, sizeof(AUTH_DOMAIN));
   size_t challengeLength = 0;
@@ -611,12 +705,12 @@ void handleAuthKem() {
   if (!demo_protocol::writeResponse("OK\n", parts, 2)) clearSessionSecret();
 }
 
-void handleConfirmSession() {
+void handleConfirmSession(bool inlinePayload = false) {
   if (!g_sessionReady) { sendError("NO_SESSION"); return; }
   constexpr char domain[] = "esp32-only/confirm/v1";
   uint8_t message[sizeof(domain) + 32 + KEM_PUBLIC_KEY_SIZE + KEM_CIPHERTEXT_SIZE + 4];
   memcpy(message, domain, sizeof(domain));
-  demo_protocol::writeLine("READY");
+  if (!inlinePayload) demo_protocol::writeLine("READY");
   size_t length = 0;
   if (!demo_protocol::readFrame(message + sizeof(domain), 32, length) || length != 32) {
     sendError("BAD_CONFIRM_CHALLENGE"); return;
@@ -637,6 +731,33 @@ void handleConfirmSession() {
 }
 
 void handleCommand(const char *command) {
+  if (strcmp(command, "CAMERA_PIPELINED") == 0) {
+    if (!demo_transport::wifiMode()) { sendError("PIPELINE_REQUIRES_WIFI"); return; }
+    g_inlineHandshake = true;
+    handlePipelineCamera();
+    g_inlineHandshake = false;
+    if (!demo_transport::connected()) clearSessionSecret();
+    return;
+  }
+  // Prevent legacy commands from replacing a session while its worker is active.
+  if (g_pipeline && strcmp(command, "DSA_SIGN") != 0 && strcmp(command, "RESET_SESSION") != 0 &&
+      strcmp(command, "INFO") != 0 && strcmp(command, "BOOT_INFO") != 0 &&
+      strcmp(command, "TX_INFO") != 0 && strcmp(command, "MEMORY_INFO") != 0 && strcmp(command, "CAMERA_INFO") != 0) {
+    g_inlineHandshake = true; sendError("PIPELINE_COMMAND_REJECTED"); g_inlineHandshake = false; return;
+  }
+  const bool inlineAuth = strcmp(command, "AUTH_KEM_INLINE") == 0;
+  const bool inlineKem = strcmp(command, "KEM_DECAPSULATE_INLINE") == 0;
+  const bool inlineConfirm = strcmp(command, "CONFIRM_SESSION_INLINE") == 0;
+  if (inlineAuth || inlineKem || inlineConfirm) {
+    if (!demo_transport::wifiMode()) { sendError("INLINE_REQUIRES_WIFI"); return; }
+    g_inlineHandshake = true;
+    if (inlineAuth) handleAuthKem(true);
+    else if (inlineKem) handleKemDecapsulate(true);
+    else handleConfirmSession(true);
+    g_inlineHandshake = false;
+    if (!demo_transport::connected()) clearSessionSecret();
+    return;
+  }
   if (demo_transport::wifiMode() &&
       (strcmp(command, "AES_DECRYPT") == 0 || strcmp(command, "AES_ENCRYPT") == 0)) {
     sendError("PLAINTEXT_TEST_DISABLED_ON_WIFI");

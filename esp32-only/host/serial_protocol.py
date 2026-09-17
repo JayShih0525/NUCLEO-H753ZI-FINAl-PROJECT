@@ -19,6 +19,34 @@ class SerialProtocol:
     context: dict = field(default_factory=dict)
     command_id: int = 0
     trusted_key: bytes | None = None
+    inline_rekey: bool = False
+    pipeline_rekey: bool = False
+
+    def send_pipeline_request(self, payload: bytes) -> None:
+        if self.pipeline_rekey is not True or not 42 <= len(payload) <= 1130:
+            raise ProtocolError('Invalid or unnegotiated pipeline request')
+        self.command_id += 1
+        self.trace('command', command='CAMERA_PIPELINED', inline_payload_bytes=len(payload))
+        packet = b'CAMERA_PIPELINED\n' + struct.pack('>I', len(payload)) + payload
+        if self.serial_port.write(packet) != len(packet):
+            raise ProtocolError('Incomplete pipeline write; close connection')
+        self.serial_port.flush()
+
+    def send_command_frame(self, command: str, data: bytes) -> None:
+        expected = {'AUTH_KEM_INLINE': 32, 'KEM_DECAPSULATE_INLINE': 1088,
+                    'CONFIRM_SESSION_INLINE': 32}
+        payload = bytes(data)
+        if self.inline_rekey is not True or command not in expected or len(payload) != expected[command]:
+            raise ProtocolError('Invalid or unnegotiated inline handshake request')
+        packet = command.encode('ascii') + b'\n' + struct.pack('>I', len(payload)) + payload
+        self.command_id += 1
+        self.trace('command', command=command, inline_payload_bytes=len(payload))
+        started = time.monotonic()
+        written = self.serial_port.write(packet)
+        if written != len(packet):
+            raise ProtocolError('Incomplete inline handshake write; close connection')
+        self.serial_port.flush()
+        self.trace('command_sent', command=command, elapsed_ms=(time.monotonic()-started)*1000)
 
     def trace(self, event: str, **values) -> None:
         if self.diagnostic is not None:

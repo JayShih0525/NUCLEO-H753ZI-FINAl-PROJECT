@@ -148,7 +148,11 @@ def parse_arguments() -> argparse.Namespace:
 
 def request_info(protocol: SerialProtocol) -> str:
     protocol.send_line("INFO")
-    return protocol.read_until_prefix("INFO ", timeout=10.0)
+    info = protocol.read_until_prefix("INFO ", timeout=10.0)
+    fields = parse_key_values(info, 'INFO ')
+    protocol.inline_rekey = fields.get('proto') == '5' and fields.get('inline_rekey') == '1'
+    protocol.pipeline_rekey = protocol.inline_rekey and fields.get('pipeline_rekey') == '1'
+    return info
 
 
 def get_frame(protocol: SerialProtocol, command: str, expected_size: int) -> bytes:
@@ -175,7 +179,8 @@ def establish_session(protocol: SerialProtocol) -> tuple[bytes, bytes, bytes, in
     finally:
         values = protocol._handshake_timings
         values['total_ms'] = (time.perf_counter() - started) * 1000
-        protocol.trace('handshake_timing', outcome=outcome, **values)
+        protocol.trace('handshake_timing', outcome=outcome,
+                       wire_mode='inline-v5' if getattr(protocol, 'inline_rekey', False) is True else 'ready-legacy', **values)
         print('[TIMING handshake] outcome=' + outcome + ' ' +
               ' '.join(f'{name}={value:.3f}' for name, value in values.items()))
         del protocol._handshake_timings
@@ -196,11 +201,14 @@ def _establish_session(protocol: SerialProtocol) -> tuple[bytes, bytes, bytes, i
         raise ProtocolError(f"Unexpected shared secret size: {len(shared_secret)}")
 
     started = time.perf_counter()
-    protocol.send_line("KEM_DECAPSULATE")
-    protocol.expect("READY")
-    timing_mark(protocol, 'kem_ready_ms', started)
-    started = time.perf_counter()
-    protocol.send_frame(kem_ciphertext)
+    if getattr(protocol, 'inline_rekey', False) is True:
+        protocol.send_command_frame('KEM_DECAPSULATE_INLINE', kem_ciphertext)
+    else:
+        protocol.send_line("KEM_DECAPSULATE")
+        protocol.expect("READY")
+        timing_mark(protocol, 'kem_ready_ms', started)
+        started = time.perf_counter()
+        protocol.send_frame(kem_ciphertext)
     device_result = protocol.expect_prefix("KEM_OK ")
     timing_mark(protocol, 'kem_response_ms', started)
     values = parse_key_values(device_result, "KEM_OK ")

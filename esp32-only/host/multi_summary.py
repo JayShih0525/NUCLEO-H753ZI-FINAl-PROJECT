@@ -18,6 +18,7 @@ def aggregate(directory):
     directory = Path(directory)
     metrics, times, segments, invalid = {}, [], [], []
     frames = interruptions = completed = handshake_errors = 0
+    pipeline_switches = pipeline_ready_ahead = 0
     termination = None
     def add(name, value):
         if type(value) in (int, float) and math.isfinite(value) and value >= 0:
@@ -69,6 +70,19 @@ def aggregate(directory):
                             add('handshake_' + key, value)
                 else:
                     handshake_errors += 1
+            if event == 'pipeline_offer':
+                for name in ('keygen_ms', 'sign_ms'):
+                    add('pipeline_' + name, row.get(name))
+            if event == 'pipeline_prepared':
+                for name in ('decap_ms', 'prepare_wall_ms'):
+                    add('pipeline_' + name, row.get(name))
+                add('pipeline_worker_stack_min_bytes', row.get('worker_stack_min'))
+            if event == 'pipeline_boundary':
+                add('pipeline_boundary_wait_ms', row.get('wait_ms'))
+            if event == 'pipeline_switch':
+                pipeline_switches += 1
+                pipeline_ready_ahead += row.get('ready_ahead') is True
+                add('pipeline_boundary_to_verified_ms', row.get('boundary_to_verified_ms'))
             if event == 'run_complete':
                 segment_complete = True
             if event == 'run_error':
@@ -82,6 +96,10 @@ def aggregate(directory):
                 total_avg_fps=frames/elapsed if elapsed and elapsed > 0 else None,
                 transport_interruptions=interruptions, termination=termination,
                 completed_segments=completed, handshake_errors=handshake_errors,
+                pipeline_switches=pipeline_switches, pipeline_ready_ahead=pipeline_ready_ahead,
+                pipeline_ready_ahead_ratio=pipeline_ready_ahead / pipeline_switches if pipeline_switches else None,
+                pipeline_worker_stack_min_bytes=min(metrics['pipeline_worker_stack_min_bytes'])
+                    if metrics.get('pipeline_worker_stack_min_bytes') else None,
                 invalid_lines=invalid, segments=segments,
                 metrics={name: stats(values) for name, values in metrics.items()}), metrics, start, end
 

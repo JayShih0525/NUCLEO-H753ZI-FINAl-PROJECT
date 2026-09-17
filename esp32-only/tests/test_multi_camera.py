@@ -87,6 +87,9 @@ class MultiCameraTests(unittest.TestCase):
         self.assertEqual(command[command.index('--trust-key')+1], str(device.trust_key))
         self.assertIn('--display', command)
         self.assertIn(str(self.root / 'trace.jsonl'), command)
+        self.assertNotIn('--rekey-mode', command)
+        experiment = command_for(device, self.root, 60, 10, 10, True, 'pipeline')
+        self.assertEqual(experiment[experiment.index('--rekey-mode')+1], 'pipeline')
 
     def test_failed_worker_does_not_stop_others(self):
         devices = load_devices(self.config)

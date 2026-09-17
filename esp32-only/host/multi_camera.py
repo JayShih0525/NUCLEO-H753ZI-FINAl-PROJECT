@@ -77,13 +77,13 @@ def load_devices(path, overrides=None):
     return devices
 
 
-def command_for(device, folder, seconds, rekey, memory, display):
+def command_for(device, folder, seconds, rekey, memory, display, rekey_mode='blocking'):
     command = [sys.executable, '-B', '-u', '-m', 'host.pqc_camera_demo',
                '--host', device.host, '--tcp-port', str(device.port),
                '--trust-key', str(device.trust_key), '--device-name', device.name,
                '--mode', 'record', '--seconds', str(seconds), '--rekey-every', str(rekey),
                '--memory-every', str(memory), '--profile', '--diagnostics', str(folder / 'trace.jsonl')]
-    return command + (['--display'] if display else [])
+    return command + (['--rekey-mode', rekey_mode] if rekey_mode != 'blocking' else []) + (['--display'] if display else [])
 
 
 def stop_workers(workers, grace=5):
@@ -130,7 +130,7 @@ def report_fps(worker, *, final=False):
         worker['fps_report_at'] = now
 
 
-def run_devices(devices, output, seconds, rekey, memory, display, *, popen=subprocess.Popen):
+def run_devices(devices, output, seconds, rekey, memory, display, *, popen=subprocess.Popen, rekey_mode='blocking'):
     output.mkdir(parents=True, exist_ok=False)
     workers, interrupted = [], False
     failure = None
@@ -145,7 +145,7 @@ def run_devices(devices, output, seconds, rekey, memory, display, *, popen=subpr
             pinned = folder / 'device.pub'
             pinned.write_bytes(public_key)
             worker_device = Device(device.name, device.host, device.port, pinned, device.fingerprint)
-            command = command_for(worker_device, folder, seconds, rekey, memory, display)
+            command = command_for(worker_device, folder, seconds, rekey, memory, display, rekey_mode)
             log = (folder / 'terminal.txt').open('w', encoding='utf-8')
             try:
                 process = popen(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
@@ -203,10 +203,13 @@ def main(argv=None):
                         help='select a configured device and override its IP; repeat for N devices')
     parser.add_argument('--seconds', type=float, default=60)
     parser.add_argument('--rekey-every', type=int, default=10)
+    parser.add_argument('--rekey-mode', choices=('blocking', 'pipeline'), default='blocking')
     parser.add_argument('--memory-every', type=int, default=10)
     parser.add_argument('--display', action='store_true')
     parser.add_argument('--dry-run', action='store_true', help='validate configuration without connecting')
     args = parser.parse_args(argv)
+    if args.rekey_mode == 'pipeline' and args.rekey_every < 3:
+        parser.error('pipeline requires rekey-every >= 3')
     if not math.isfinite(args.seconds) or args.seconds <= 0 or not 1 <= args.rekey_every <= 100000 or args.memory_every < 0:
         parser.error('seconds must be positive/finite; rekey 1..100000; memory-every >= 0')
     try:
@@ -225,7 +228,8 @@ def main(argv=None):
         print(f'Configuration valid: {len(devices)} devices; no connections made.')
         return 0
     output = ROOT / 'diagnostics' / 'multi' / datetime.now().strftime('%Y%m%d_%H%M%S_%f')
-    return run_devices(devices, output, args.seconds, args.rekey_every, args.memory_every, args.display)
+    return run_devices(devices, output, args.seconds, args.rekey_every, args.memory_every, args.display,
+                       rekey_mode=args.rekey_mode)
 
 
 if __name__ == '__main__':

@@ -76,10 +76,13 @@ def parse_camera_metadata(data: bytes) -> CameraMetadata:
 def request_encrypted_frame(
     protocol: SerialProtocol, shared_secret: bytes, expected_epoch: int,
     replay_guard: CameraReplayGuard,
-    *, inject_timeout: bool = False,
+    *, inject_timeout: bool = False, pipeline=None,
 ) -> CameraResult:
     timing_start = time.perf_counter()
-    protocol.send_line("CAMERA_CAPTURE_ENCRYPTED")
+    if pipeline is None:
+        protocol.send_line("CAMERA_CAPTURE_ENCRYPTED")
+    else:
+        shared_secret, expected_epoch = pipeline.prepare_capture(replay_guard)
     status_line = protocol.expect_prefix("OK ")
     status_at = time.perf_counter()
     status = parse_aes_status(status_line)
@@ -92,6 +95,7 @@ def request_encrypted_frame(
         protocol.trace('injected_camera_timeout', received_header_bytes=3)
         raise TimeoutError('Injected timeout after 3/4 tag header bytes')
     tag = protocol.receive_frame(16, label='tag')
+    extension = protocol.receive_frame(3717, label='pipeline') if pipeline is not None else None
     received_at = time.perf_counter()
     metadata = parse_camera_metadata(metadata_bytes)
 
@@ -118,6 +122,10 @@ def request_encrypted_frame(
     except ProtocolError as error:
         protocol.trace('camera_replay_rejected', frame_id=metadata.frame_id, reason=str(error))
         raise
+
+    if pipeline is not None:
+        pipeline.accept_extension(extension)
+        pipeline.frame_accepted()
 
     if getattr(protocol, 'profile', False):
         protocol.trace('camera_timing', frame_id=metadata.frame_id,
@@ -182,6 +190,8 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--seconds", type=float, default=10.0)
     parser.add_argument("--output-fps", type=float, default=12.0, help="legacy option; no video is saved")
     parser.add_argument("--rekey-every", type=int, default=10)
+    parser.add_argument('--rekey-mode', choices=('blocking', 'pipeline'), default='blocking',
+                        help='experimental pipeline requires updated WiFi firmware; keeps the same key-use limit')
     parser.add_argument(
         "--memory-every",
         type=int,
@@ -202,6 +212,9 @@ def parse_arguments() -> argparse.Namespace:
 def run_once(args) -> int:
     import cv2
     use_tcp = bool(args.host)
+    pipeline_enabled = getattr(args, 'rekey_mode', 'blocking') == 'pipeline'
+    if pipeline_enabled and (not use_tcp or args.mode != 'record' or args.rekey_every < 3):
+        raise ValueError('Pipeline requires TCP record mode and rekey-every >= 3')
     if not 1 <= args.tcp_port <= 65535:
         raise ValueError('tcp-port must be between 1 and 65535')
     if use_tcp and args.inject_camera_timeout_at:
@@ -267,6 +280,8 @@ def run_once(args) -> int:
                 capture_startup(protocol)
 
             print(request_info(protocol))
+            if pipeline_enabled and protocol.pipeline_rekey is not True:
+                raise ProtocolError('Firmware does not advertise pipeline_rekey=1; upload the updated sketch')
             initial_snapshot = request_snapshot(protocol, 'start')
             accepted_boot = initial_snapshot['BOOT_INFO']['boot_id']
 
@@ -291,6 +306,10 @@ def run_once(args) -> int:
             transcript = hashlib.sha256()
             transcript.update(b"esp32-only/camera-transcript/v1")
             public_key, kem_ciphertext, shared_secret, epoch = establish_session(protocol)
+            pipeline = None
+            if pipeline_enabled:
+                from host.rekey_pipeline import RekeyPipeline
+                pipeline = RekeyPipeline(protocol, (public_key, kem_ciphertext, shared_secret, epoch), args.rekey_every)
             replay_guard = CameraReplayGuard(args.rekey_every)
             replay_guard.begin_session(epoch)
             protocol.trace('camera_replay_session', epoch=epoch, last_frame=None)
@@ -303,7 +322,7 @@ def run_once(args) -> int:
             started = time.monotonic()
             protocol.trace('stream_start', rekey_every=args.rekey_every,
                            memory_every=args.memory_every, display=args.display,
-                           profile=protocol.profile)
+                           profile=protocol.profile, rekey_mode='pipeline' if pipeline_enabled else 'blocking')
 
             while args.mode == "photo" or time.monotonic() - started < args.seconds:
                 protocol.context = dict(stage='stream', request_index=frames_received + 1, last_verified_frame=last_verified_frame, expected_epoch=epoch)
@@ -311,7 +330,7 @@ def run_once(args) -> int:
                     inject = not injection_used and args.inject_camera_timeout_at == frames_received + 1
                     injection_used = injection_used or inject
                     result = request_encrypted_frame(protocol, shared_secret, epoch, replay_guard,
-                                                     inject_timeout=inject)
+                                                     inject_timeout=inject, pipeline=pipeline)
                 except TimeoutError as error:
                     if use_tcp or args.mode != 'record' or recovery_count >= args.max_recoveries:
                         reason = ('tcp_reconnect_required' if use_tcp else
@@ -351,6 +370,13 @@ def run_once(args) -> int:
                                    boot_id=accepted_boot, new_epoch=epoch)
                     print('[RECOVERY] Boundary synchronized, device authenticated, new session confirmed')
                     continue
+                if pipeline is not None and pipeline.active[3] != epoch:
+                    public_key, kem_ciphertext, shared_secret, epoch = pipeline.active
+                    add_session_to_transcript(transcript, public_key, kem_ciphertext, epoch)
+                    previous_public_key, previous_shared_secret = public_key, shared_secret
+                    protocol.context['expected_epoch'] = epoch
+                    protocol.trace('camera_replay_session', epoch=epoch, last_frame=replay_guard.last_frame)
+                    print(f'[PASS] Prepared camera session activated: epoch={epoch}')
                 last_verified_frame = result.metadata.frame_id
                 protocol.context['last_verified_frame'] = last_verified_frame
                 protocol.trace('camera_verified', frame_id=last_verified_frame)
@@ -409,7 +435,7 @@ def run_once(args) -> int:
                     if quit_requested:
                         break
 
-                if result.status.rekey:
+                if result.status.rekey and pipeline is None:
                     rekey_started = time.perf_counter()
                     public_key, kem_ciphertext, shared_secret, epoch = establish_session(
                         protocol
