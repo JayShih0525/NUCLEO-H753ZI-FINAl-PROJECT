@@ -25,6 +25,9 @@ class SerialProtocol:
     def send_pipeline_request(self, payload: bytes) -> None:
         if self.pipeline_rekey is not True or not 42 <= len(payload) <= 1130:
             raise ProtocolError('Invalid or unnegotiated pipeline request')
+        begin = getattr(self.serial_port, "begin_command", None)
+        if begin is not None:
+            begin()
         self.command_id += 1
         self.trace('command', command='CAMERA_PIPELINED', inline_payload_bytes=len(payload))
         packet = b'CAMERA_PIPELINED\n' + struct.pack('>I', len(payload)) + payload
@@ -39,6 +42,9 @@ class SerialProtocol:
         if self.inline_rekey is not True or command not in expected or len(payload) != expected[command]:
             raise ProtocolError('Invalid or unnegotiated inline handshake request')
         packet = command.encode('ascii') + b'\n' + struct.pack('>I', len(payload)) + payload
+        begin = getattr(self.serial_port, "begin_command", None)
+        if begin is not None:
+            begin()
         self.command_id += 1
         self.trace('command', command=command, inline_payload_bytes=len(payload))
         started = time.monotonic()
@@ -53,6 +59,9 @@ class SerialProtocol:
             self.diagnostic(dict(event=event, monotonic=time.monotonic(), command_id=self.command_id, **self.context, **values))
 
     def send_line(self, line: str) -> None:
+        begin = getattr(self.serial_port, "begin_command", None)
+        if begin is not None:
+            begin()
         self.command_id += 1
         self.trace('command', command=line)
         started = time.monotonic()

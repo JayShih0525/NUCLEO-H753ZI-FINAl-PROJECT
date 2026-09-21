@@ -1,5 +1,6 @@
 #include "transport.h"
 #include <WiFi.h>
+#include <esp_wifi.h>
 #include <atomic>
 #include <lwip/sockets.h>
 #include <errno.h>
@@ -24,6 +25,11 @@ std::atomic<uint32_t> disconnectGeneration{0};
 std::atomic<unsigned int> disconnectReason{0};
 uint32_t handledGeneration = 0;
 uint32_t retryAt = 0, retryDelay = 1000, retryCount = 0;
+// A vanished Host may never deliver FIN/RST after losing WiFi. Do not let
+// its half-open socket own the single-client protocol loop indefinitely.
+constexpr uint32_t kClientIdleTimeoutMs = 30000;
+uint32_t lastCommandActivity = 0;
+bool clientAccepted = false;
 
 bool networkReady() {
   return WiFi.status() == WL_CONNECTED && static_cast<uint32_t>(WiFi.localIP()) != 0;
@@ -43,6 +49,11 @@ void serviceNetwork() {
   }
   if (networkReady()) {
     if (!serverRunning) {
+      wifi_ps_type_t powerSave = WIFI_PS_NONE;
+      const esp_err_t psResult = esp_wifi_get_ps(&powerSave);
+      Serial.printf("[WIFI] power_save requested=NONE actual=%d query_error=%d verified=%u\n",
+          static_cast<int>(powerSave), static_cast<int>(psResult),
+          psResult == ESP_OK && powerSave == WIFI_PS_NONE);
       server.begin();
       serverRunning = true;
       retryDelay = 1000;
@@ -75,6 +86,7 @@ uint32_t writeMs = 0, maxWriteMs = 0, writeCalls = 0, shortWrites = 0;
 size_t writtenBytes = 0;
 void commandBegin(const char *command) {
   if (!PQC_USE_WIFI) return;
+  lastCommandActivity = millis();
   ++commandId;
   commandStarted = millis();
   writeMs = maxWriteMs = writeCalls = shortWrites = 0;
@@ -84,6 +96,7 @@ void commandBegin(const char *command) {
 }
 void commandEnd() {
   if (!PQC_USE_WIFI) return;
+  lastCommandActivity = millis();
   Serial.printf("[TCP] conn=%lu cmd=%lu end_ms=%lu duration_ms=%lu connected=%u tx_calls=%lu tx_bytes=%u tx_ms=%lu tx_max_ms=%lu tx_short=%lu\n",
       connectionId, commandId, millis(), millis()-commandStarted, connected(),
       writeCalls, static_cast<unsigned int>(writtenBytes), writeMs, maxWriteMs, shortWrites);
@@ -123,9 +136,9 @@ bool begin() {
   WiFi.mode(WIFI_STA);
 
   // 關閉 WiFi 省電模式
-if (!WiFi.setSleep(false)) {
-  Serial.println("[WIFI] disabling sleep failed");
-}
+  if (!WiFi.setSleep(false)) {
+    Serial.println("[WIFI] disabling sleep failed");
+  }
 
   WiFi.setAutoReconnect(false); // One retry owner: serviceNetwork().
   networkStarted = true; // Never route protocol bytes back to UART on WiFi loss.
@@ -141,10 +154,22 @@ if (!WiFi.setSleep(false)) {
 }
 bool wifiMode() { return PQC_USE_WIFI; }
 bool connected() {
+  if (PQC_USE_WIFI && clientAccepted &&
+      millis() - lastCommandActivity >= kClientIdleTimeoutMs) {
+    Serial.printf("[TCP] idle timeout conn=%lu idle_ms=%lu; closing stale client\n",
+        connectionId, millis() - lastCommandActivity);
+    closeConnection();
+    return false;
+  }
   return !PQC_USE_WIFI || (disconnectGeneration.load() == handledGeneration &&
       networkReady() && serverRunning && client.connected());
 }
-void closeConnection() { if (PQC_USE_WIFI) client.stop(); }
+void closeConnection() {
+  if (PQC_USE_WIFI) {
+    clientAccepted = false;
+    client.stop();
+  }
+}
 bool acceptConnection() {
   if (!PQC_USE_WIFI) return false;
   serviceNetwork();
@@ -153,6 +178,8 @@ bool acceptConnection() {
   client.stop();
   client = server.available();
   if (!client) { delay(10); return false; }
+  clientAccepted = true;
+  lastCommandActivity = millis();
   client.setNoDelay(true);
   client.setTimeout(10000);
   ++connectionId;

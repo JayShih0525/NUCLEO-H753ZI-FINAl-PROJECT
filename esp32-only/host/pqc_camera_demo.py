@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import traceback
 from datetime import datetime
 import struct
@@ -30,6 +31,7 @@ from host.serial_connection import camera_connection
 from host.tcp_connection import TcpConnection
 from host.camera_replay import CameraReplayGuard
 from host.camera_recovery import recover_camera
+from host.live_display import UserStop
 
 
 CAMERA_METADATA_SIZE = 20
@@ -175,6 +177,21 @@ def add_camera_to_transcript(
     add_transcript_field(transcript, b"camera-tag", result.tag)
 
 
+def configure_camera_mode(protocol, mode, resolution):
+    if resolution not in ('qvga', 'vga', 'svga'):
+        raise ValueError('resolution must be qvga, vga or svga')
+    if mode == 'photo' and resolution != 'qvga':
+        raise ValueError('--resolution controls record mode; photo uses SVGA quality 12')
+    command = 'CAMERA_MODE PHOTO' if mode == 'photo' else 'CAMERA_MODE STREAM'
+    if mode == 'record' and resolution != 'qvga':
+        command += ' ' + resolution.upper()
+    protocol.send_line(command)
+    print(f"[PASS] {protocol.expect_prefix('OK camera_mode=')}")
+    protocol.trace('camera_configuration', mode=mode,
+                   resolution='svga' if mode == 'photo' else resolution,
+                   jpeg_quality=12 if mode == 'photo' else 15)
+
+
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Encrypted ESP32-S3-CAM photo and recording demo"
@@ -184,8 +201,11 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument('--device-name', default='ESP32-S3-CAM', help='label for this camera window')
     parser.add_argument('--host', help='ESP32 IP; selects TCP instead of UART')
     parser.add_argument('--tcp-port', type=int, default=9000)
+    parser.add_argument("--response-timeout", type=float, default=10.0, help="TCP total deadline per command in seconds")
     parser.add_argument("--baud", type=int, default=921600)
     parser.add_argument("--mode", choices=("photo", "record"), default="record")
+    parser.add_argument("--resolution", choices=("qvga", "vga", "svga"), default="qvga",
+                        help="record resolution: 320x240, 640x480 or 800x600; JPEG quality remains 15")
     parser.add_argument("--output", type=Path, help="photo output path; ignored in record mode")
     parser.add_argument("--seconds", type=float, default=10.0)
     parser.add_argument("--output-fps", type=float, default=12.0, help="legacy option; no video is saved")
@@ -211,10 +231,16 @@ def parse_arguments() -> argparse.Namespace:
 
 def run_once(args) -> int:
     import cv2
+    view = getattr(args, "_live_display", None)
+    response_timeout = getattr(args, "response_timeout", 10.0)
+    if not math.isfinite(response_timeout) or response_timeout <= 0:
+        raise ValueError("response-timeout must be positive and finite")
     use_tcp = bool(args.host)
     pipeline_enabled = getattr(args, 'rekey_mode', 'blocking') == 'pipeline'
     if pipeline_enabled and (not use_tcp or args.mode != 'record' or args.rekey_every < 3):
         raise ValueError('Pipeline requires TCP record mode and rekey-every >= 3')
+    if args.mode == "photo" and getattr(args, "resolution", "qvga") != "qvga":
+        raise ValueError("--resolution controls record mode; photo uses SVGA quality 12")
     if not 1 <= args.tcp_port <= 65535:
         raise ValueError('tcp-port must be between 1 and 65535')
     if use_tcp and args.inject_camera_timeout_at:
@@ -265,7 +291,8 @@ def run_once(args) -> int:
                           transport='tcp' if use_tcp else 'uart', host=args.host, tcp_port=args.tcp_port,
                           seconds=args.seconds, mode=args.mode,
                           output=str(output) if output is not None else None, save_video=False))
-        connection = (TcpConnection(args.host, args.tcp_port, diagnostic=record_trace) if use_tcp
+        connection = (TcpConnection(args.host, args.tcp_port, timeout=response_timeout, diagnostic=record_trace,
+                                    command_timeout=response_timeout, stop_event=getattr(args, "_stop_event", None)) if use_tcp
                       else camera_connection(args.port, args.baud, record_trace))
         with connection as serial_port:
             if not use_tcp:
@@ -298,10 +325,7 @@ def run_once(args) -> int:
 
             protocol.send_line(f"SET_REKEY_INTERVAL {args.rekey_every}")
             print(f"[PASS] {protocol.expect_prefix('OK rekey_every=')}")
-            protocol.send_line(
-                "CAMERA_MODE PHOTO" if args.mode == "photo" else "CAMERA_MODE STREAM"
-            )
-            print(f"[PASS] {protocol.expect_prefix('OK camera_mode=')}")
+            configure_camera_mode(protocol, args.mode, getattr(args, 'resolution', 'qvga'))
 
             transcript = hashlib.sha256()
             transcript.update(b"esp32-only/camera-transcript/v1")
@@ -322,9 +346,11 @@ def run_once(args) -> int:
             started = time.monotonic()
             protocol.trace('stream_start', rekey_every=args.rekey_every,
                            memory_every=args.memory_every, display=args.display,
-                           profile=protocol.profile, rekey_mode='pipeline' if pipeline_enabled else 'blocking')
+                           profile=protocol.profile, resolution=getattr(args, 'resolution', 'qvga'), rekey_mode='pipeline' if pipeline_enabled else 'blocking')
 
             while args.mode == "photo" or time.monotonic() - started < args.seconds:
+                if view is not None and view.stop.is_set():
+                    raise UserStop()
                 protocol.context = dict(stage='stream', request_index=frames_received + 1, last_verified_frame=last_verified_frame, expected_epoch=epoch)
                 try:
                     inject = not injection_used and args.inject_camera_timeout_at == frames_received + 1
@@ -426,7 +452,9 @@ def run_once(args) -> int:
                         cv2.waitKey(0)
                     break
 
-                if args.display:
+                if view is not None:
+                    view.publish(image)
+                elif args.display:
                     display_started = time.perf_counter()
                     cv2.imshow(f"Encrypted {getattr(args, 'device_name', 'ESP32-S3-CAM')} stream", image)
                     quit_requested = cv2.waitKey(1) & 0xFF in (ord("q"), 27)
@@ -473,6 +501,9 @@ def run_once(args) -> int:
             protocol.trace('run_complete', initial_snapshot=initial_snapshot,
                            final_snapshot=final_snapshot, recoveries=recovery_count)
 
+    except UserStop:
+        record_trace(dict(event="user_stop", frames_received=frames_received))
+        raise
     except BaseException:
         record_trace(dict(event='run_error', last_verified_frame=last_verified_frame,
                           frames_received=frames_received, traceback=traceback.format_exc()))
@@ -517,6 +548,9 @@ def main() -> int:
     if not args.auto_reconnect:
         return run_once(args)
     try:
+        if args.display:
+            from host.live_display import run_with_display
+            return run_with_display(args, lambda: supervise(args, run_once, cv2), cv2)
         return supervise(args, run_once, cv2)
     finally:
         cv2.destroyAllWindows()

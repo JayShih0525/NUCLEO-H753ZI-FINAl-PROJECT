@@ -6,7 +6,7 @@
 bool initializeCamera();
 bool cameraIsReady();
 bool setCameraPhotoMode();
-bool setCameraStreamMode();
+bool setCameraStreamMode(framesize_t size = FRAMESIZE_QVGA);
 const char *cameraModeName();
 camera_fb_t *captureCameraFrame();
 void releaseCameraFrame(camera_fb_t *frame);

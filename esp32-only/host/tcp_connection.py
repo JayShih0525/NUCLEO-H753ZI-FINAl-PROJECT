@@ -8,7 +8,10 @@ class TcpTransportError(ConnectionError):
 
 
 class TcpConnection:
-    def __init__(self, host, port=9000, timeout=10.0, diagnostic=None):
+    def __init__(self, host, port=9000, timeout=10.0, diagnostic=None, command_timeout=None, stop_event=None):
+        self.command_timeout = command_timeout
+        self.stop_event = stop_event
+        self.deadline = None
         self.diagnostic = diagnostic
         try:
             self.socket = socket.create_connection((host, port), timeout=timeout)
@@ -22,13 +25,39 @@ class TcpConnection:
         if callback:
             callback(dict(event=event, **values))
 
+    def begin_command(self):
+        budget = getattr(self, 'command_timeout', None)
+        if budget is not None:
+            self.deadline = time.monotonic() + budget
+        self._check_budget()
+
+    def _check_budget(self):
+        stop = getattr(self, 'stop_event', None)
+        if stop is not None and stop.is_set():
+            from host.live_display import UserStop
+            raise UserStop()
+        deadline = getattr(self, 'deadline', None)
+        if deadline is not None:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                self.trace('tcp_command_deadline', timeout=self.command_timeout)
+                raise TcpTransportError(f'Command exceeded {self.command_timeout:g}s total deadline; discard connection')
+            self.socket.settimeout(min(.2, remaining))
+
     def read(self, size):
         if size == 0:
             return b''
-        try:
-            data = self.socket.recv(size)
-        except OSError as error:
-            raise TcpTransportError(str(error)) from error
+        while True:
+            self._check_budget()
+            try:
+                data = self.socket.recv(size)
+                break
+            except socket.timeout as error:
+                if getattr(self, 'deadline', None) is None:
+                    raise TcpTransportError(str(error)) from error
+                continue
+            except OSError as error:
+                raise TcpTransportError(str(error)) from error
         if not data:
             raise TcpTransportError('ESP32 closed the TCP connection')
         return data
@@ -46,6 +75,9 @@ class TcpConnection:
 
     def write(self, data):
         started = time.monotonic()
+        self._check_budget()
+        if getattr(self, "deadline", None) is not None:
+            self.socket.settimeout(max(.001, self.deadline - time.monotonic()))
         try:
             self.socket.sendall(data)
         except OSError as error:

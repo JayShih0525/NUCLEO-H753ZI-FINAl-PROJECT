@@ -77,12 +77,13 @@ def load_devices(path, overrides=None):
     return devices
 
 
-def command_for(device, folder, seconds, rekey, memory, display, rekey_mode='blocking'):
+def command_for(device, folder, seconds, rekey, memory, display, rekey_mode='blocking', response_timeout=10.0, resolution='qvga'):
     command = [sys.executable, '-B', '-u', '-m', 'host.pqc_camera_demo',
                '--host', device.host, '--tcp-port', str(device.port),
                '--trust-key', str(device.trust_key), '--device-name', device.name,
                '--mode', 'record', '--seconds', str(seconds), '--rekey-every', str(rekey),
                '--memory-every', str(memory), '--profile', '--diagnostics', str(folder / 'trace.jsonl')]
+    command += ['--response-timeout', str(response_timeout), '--resolution', resolution]
     return command + (['--rekey-mode', rekey_mode] if rekey_mode != 'blocking' else []) + (['--display'] if display else [])
 
 
@@ -130,7 +131,7 @@ def report_fps(worker, *, final=False):
         worker['fps_report_at'] = now
 
 
-def run_devices(devices, output, seconds, rekey, memory, display, *, popen=subprocess.Popen, rekey_mode='blocking'):
+def run_devices(devices, output, seconds, rekey, memory, display, *, popen=subprocess.Popen, rekey_mode='blocking', response_timeout=10.0, resolution='qvga'):
     output.mkdir(parents=True, exist_ok=False)
     workers, interrupted = [], False
     failure = None
@@ -145,7 +146,7 @@ def run_devices(devices, output, seconds, rekey, memory, display, *, popen=subpr
             pinned = folder / 'device.pub'
             pinned.write_bytes(public_key)
             worker_device = Device(device.name, device.host, device.port, pinned, device.fingerprint)
-            command = command_for(worker_device, folder, seconds, rekey, memory, display, rekey_mode)
+            command = command_for(worker_device, folder, seconds, rekey, memory, display, rekey_mode, response_timeout, resolution)
             log = (folder / 'terminal.txt').open('w', encoding='utf-8')
             try:
                 process = popen(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
@@ -205,9 +206,13 @@ def main(argv=None):
     parser.add_argument('--rekey-every', type=int, default=10)
     parser.add_argument('--rekey-mode', choices=('blocking', 'pipeline'), default='blocking')
     parser.add_argument('--memory-every', type=int, default=10)
+    parser.add_argument('--response-timeout', type=float, default=10.0)
+    parser.add_argument('--resolution', choices=('qvga', 'vga', 'svga'), default='qvga')
     parser.add_argument('--display', action='store_true')
     parser.add_argument('--dry-run', action='store_true', help='validate configuration without connecting')
     args = parser.parse_args(argv)
+    if not math.isfinite(args.response_timeout) or args.response_timeout <= 0:
+        parser.error('response-timeout must be positive and finite')
     if args.rekey_mode == 'pipeline' and args.rekey_every < 3:
         parser.error('pipeline requires rekey-every >= 3')
     if not math.isfinite(args.seconds) or args.seconds <= 0 or not 1 <= args.rekey_every <= 100000 or args.memory_every < 0:
@@ -229,7 +234,7 @@ def main(argv=None):
         return 0
     output = ROOT / 'diagnostics' / 'multi' / datetime.now().strftime('%Y%m%d_%H%M%S_%f')
     return run_devices(devices, output, args.seconds, args.rekey_every, args.memory_every, args.display,
-                       rekey_mode=args.rekey_mode)
+                       rekey_mode=args.rekey_mode, response_timeout=args.response_timeout, resolution=args.resolution)
 
 
 if __name__ == '__main__':

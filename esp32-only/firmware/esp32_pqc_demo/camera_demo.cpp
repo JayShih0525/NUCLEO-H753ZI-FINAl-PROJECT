@@ -108,8 +108,9 @@ bool setCameraPhotoMode() {
 }
 
 // 320*240
-bool setCameraStreamMode() {
-  return applyMode(FRAMESIZE_QVGA, 15, false);
+bool setCameraStreamMode(framesize_t size) {
+  if (size != FRAMESIZE_QVGA && size != FRAMESIZE_VGA && size != FRAMESIZE_SVGA) return false;
+  return applyMode(size, 15, false);
 }
 
 // need to try the FRAMESIZE_XGA || FRAMESIZE_SXGA, a great framesize for human, QVGA is hard to read af

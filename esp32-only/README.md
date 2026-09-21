@@ -124,7 +124,7 @@ $fingerprint = '填入已核對的64位指紋'
 python -m host.enroll_device --host $cameraIp --output host/camera2.pub --fingerprint $fingerprint
 ```
 
-登錄工具拒絕覆蓋既存輸出。已登錄就直接使用，不需每次重跑。第一台本機檔案為 `host/trusted_device.pub`，第二台為 `host/camera2.pub`；都保留但不推 Git。兩個獨立程序可各自指定公鑰；這與「同一個 session 接受任意公鑰」不同。
+登錄工具拒絕覆蓋既存輸出。已登錄就直接使用，不需每次重跑。第一台本機檔案為 `host/camera1.pub`，第二台為 `host/camera2.pub`；都保留但不推 Git。兩個獨立程序可各自指定公鑰；這與「同一個 session 接受任意公鑰」不同。
 
 ### WiFi 文字、影像與量測
 

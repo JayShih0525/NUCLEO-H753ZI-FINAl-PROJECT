@@ -14,6 +14,8 @@ int main(){
  delay(11000); serviceNetwork(); assert(WiFi.retries==2);
  assert(retryDelay==4000);
  WiFi.state=WL_CONNECTED; serviceNetwork(); assert(serverRunning);
+ assert(testPowerSave==WIFI_PS_NONE); assert(powerSaveQueries==1);
+ serviceNetwork(); assert(powerSaveQueries==1); // No per-frame polling.
  assert(acceptConnection()); assert(connected());
  WiFi.state=0; WiFi.callback(5,{{201}}); assert(!connected());
  serviceNetwork(); assert(!serverRunning); assert(!client.live);
@@ -22,6 +24,12 @@ int main(){
  // Even a fast disconnect/reconnect must invalidate the old TCP session.
  WiFi.callback(5,{{202}}); assert(!connected()); serviceNetwork(); assert(!client.live);
  assert(acceptConnection()); assert(connected());
+ // Host disappears without FIN: stale client expires, a fresh one is accepted.
+ delay(29999); assert(connected());
+ delay(1); assert(!connected()); assert(!client.live);
+ assert(acceptConnection()); assert(connected());
+ delay(20000); commandBegin("INFO"); commandEnd();
+ delay(20000); assert(connected()); // Active commands refresh the lease.
  uint8_t payload[20]={};
  assert(write(payload,20)==20);
  sendResult=-1;sendError=EAGAIN;

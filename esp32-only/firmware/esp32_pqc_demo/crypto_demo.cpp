@@ -265,8 +265,8 @@ void handleCameraInfo() {
   demo_transport::flush();
 }
 
-void handleCameraMode(bool photoMode) {
-  const bool ok = photoMode ? setCameraPhotoMode() : setCameraStreamMode();
+void handleCameraMode(bool photoMode, framesize_t size = FRAMESIZE_QVGA) {
+  const bool ok = photoMode ? setCameraPhotoMode() : setCameraStreamMode(size);
   if (!ok) {
     sendError("CAMERA_MODE_FAILED");
     return;
@@ -813,6 +813,10 @@ void handleCommand(const char *command) {
     handleCameraMode(true);
   } else if (strcmp(command, "CAMERA_MODE STREAM") == 0) {
     handleCameraMode(false);
+  } else if (strcmp(command, "CAMERA_MODE STREAM VGA") == 0) {
+    handleCameraMode(false, FRAMESIZE_VGA);
+  } else if (strcmp(command, "CAMERA_MODE STREAM SVGA") == 0) {
+    handleCameraMode(false, FRAMESIZE_SVGA);
   } else if (strcmp(command, "CAMERA_CAPTURE_ENCRYPTED") == 0) {
     handleCameraCaptureEncrypted();
   } else if (strcmp(command, "GET_DSA_PUBLIC_KEY") == 0) {

@@ -109,6 +109,9 @@ def enrich_summary(directory, summary):
     frames = 0
     for device in summary['devices']:
         result, samples, start, end = aggregate(Path(directory)/device['name'])
+        display_path = Path(directory)/device['name']/'trace_display.json'
+        if display_path.exists():
+            result['display'] = json.loads(display_path.read_text(encoding='utf-8'))
         device['performance'] = result
         frames += result['verified_frames']
         if start is not None:

@@ -90,6 +90,8 @@ class MultiCameraTests(unittest.TestCase):
         self.assertNotIn('--rekey-mode', command)
         experiment = command_for(device, self.root, 60, 10, 10, True, 'pipeline')
         self.assertEqual(experiment[experiment.index('--rekey-mode')+1], 'pipeline')
+        high_res = command_for(device, self.root, 60, 10, 10, True, resolution='svga')
+        self.assertEqual(high_res[high_res.index('--resolution')+1], 'svga')
 
     def test_failed_worker_does_not_stop_others(self):
         devices = load_devices(self.config)
