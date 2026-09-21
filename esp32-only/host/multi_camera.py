@@ -17,6 +17,7 @@ import time
 
 ROOT = Path(__file__).resolve().parent.parent
 
+# python -u -m host.multi_camera --device camera1=ipaddress --device camera2=ipaddress --seconds s 
 
 @dataclass(frozen=True)
 class Device:
@@ -204,7 +205,7 @@ def main(argv=None):
                         help='select a configured device and override its IP; repeat for N devices')
     parser.add_argument('--seconds', type=float, default=60)
     parser.add_argument('--rekey-every', type=int, default=10)
-    parser.add_argument('--rekey-mode', choices=('blocking', 'pipeline'), default='blocking')
+    parser.add_argument('--rekey-mode', choices=('blocking', 'pipeline'), default='pipeline')
     parser.add_argument('--memory-every', type=int, default=10)
     parser.add_argument('--response-timeout', type=float, default=10.0)
     parser.add_argument('--resolution', choices=('qvga', 'vga', 'svga'), default='qvga')

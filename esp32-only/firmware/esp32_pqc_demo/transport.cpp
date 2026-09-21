@@ -91,15 +91,19 @@ void commandBegin(const char *command) {
   commandStarted = millis();
   writeMs = maxWriteMs = writeCalls = shortWrites = 0;
   writtenBytes = 0;
+#if PQC_TRACE_COMMANDS
   Serial.printf("[TCP] conn=%lu cmd=%lu name=%s begin_ms=%lu wifi=%d rssi=%d\n",
       connectionId, commandId, command, commandStarted, WiFi.status(), WiFi.RSSI());
+#endif
 }
 void commandEnd() {
   if (!PQC_USE_WIFI) return;
   lastCommandActivity = millis();
+#if PQC_TRACE_COMMANDS
   Serial.printf("[TCP] conn=%lu cmd=%lu end_ms=%lu duration_ms=%lu connected=%u tx_calls=%lu tx_bytes=%u tx_ms=%lu tx_max_ms=%lu tx_short=%lu\n",
       connectionId, commandId, millis(), millis()-commandStarted, connected(),
       writeCalls, static_cast<unsigned int>(writtenBytes), writeMs, maxWriteMs, shortWrites);
+#endif
 }
 size_t write(const uint8_t *data, size_t length) {
   const uint32_t started = millis();
@@ -125,8 +129,8 @@ size_t write(const uint8_t *data, size_t length) {
   return result;
 }
 bool begin() {
-  Serial.printf("[BUILD] rekey-pipeline-v1 coalesce=%u frame_trace=%u\n",
-      PQC_COALESCE_SMALL_FRAMES, PQC_TRACE_FRAME_TX);
+  Serial.printf("[BUILD] rekey-pipeline-v1 coalesce=%u frame_trace=%u command_trace=%u\n",
+      PQC_COALESCE_SMALL_FRAMES, PQC_TRACE_FRAME_TX, PQC_TRACE_COMMANDS);
   if (!PQC_USE_WIFI) return true;
   WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info) {
     // No blocking I/O, TCP manipulation or crypto state changes here.
