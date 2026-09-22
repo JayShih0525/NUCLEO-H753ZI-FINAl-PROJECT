@@ -1,5 +1,11 @@
 # ESP32-S3 加密相機：目前狀態與閱讀入口
 
+> 2026-09-22 里程碑副本：[multi-device-mutual-v6](baselines/multi-device-mutual-v6/README.md)。無參數啟動、自動搜尋、雙向認證、持續 QVGA 顯示，Q／Esc 停止全部，只輸出 FPS，不保存 log 或錄影。主線後續改動不會同步到此副本。
+
+> 2026-09-22：主線 WiFi 升級 [雙向認證 v6](docs/MUTUAL_AUTH_V6.md)，需在本機產生 Host 身分與信任公鑰 header 後重新燒錄。未認證 Host 不可取像；尚待實機驗收。下方歷史狀態仍供前後比較。
+
+> 2026-09-21：新增 [區網探索使用方式、雙向認證與 10 月中測試工具計畫](docs/DISCOVERY_AND_AUTH_PLAN.md)。探索版待實機驗收；雙向 Host 身分驗證尚未實作。此階段必須保留修改前／後的效能與安全行為對比。
+
 > 2026-09-17：新增 [提前換鑰實驗與完整技術說明](performance-tests/REKEY_PIPELINE.md)。主線重新燒錄後，可用 `--rekey-mode pipeline` 啟用背景準備＋影像附帶換鑰；預設 `blocking` 保留原流程。新原型尚待實機驗收，凍結副本不變。
 
 > 前一版 [inline v5 握手](performance-tests/REKEY_INLINE.md) 已有雙台五分鐘完成紀錄 `20260917_181551_821053`，串流約 20.48／23.81 FPS，無重連。這是當輪結果，不保證所有網路都達到相同效能。下方舊 build marker 與進度屬歷程快照。

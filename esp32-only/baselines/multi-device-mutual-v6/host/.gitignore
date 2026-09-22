@@ -1,0 +1,2 @@
+# Local trust configuration; do not distribute another machine's enrollment.
+trusted_device.pub

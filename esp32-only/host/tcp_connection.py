@@ -13,6 +13,7 @@ class TcpConnection:
         self.stop_event = stop_event
         self.deadline = None
         self.diagnostic = diagnostic
+        self._receive_buffer = bytearray()
         try:
             self.socket = socket.create_connection((host, port), timeout=timeout)
         except OSError as error:
@@ -47,6 +48,15 @@ class TcpConnection:
     def read(self, size):
         if size == 0:
             return b''
+        self._check_budget()
+        buffer = getattr(self, '_receive_buffer', None)
+        if buffer:
+            result = bytes(buffer[:size])
+            del buffer[:size]
+            return result
+        return self._recv(size)
+
+    def _recv(self, size):
         while True:
             self._check_budget()
             try:
@@ -63,15 +73,24 @@ class TcpConnection:
         return data
 
     def readline(self):
-        result = bytearray()
-        while len(result) < 4096:
+        # One TCP receive can contain text, frame headers and encrypted payload.
+        # Keep everything after the newline for read(); never discard or reorder it.
+        buffer = getattr(self, '_receive_buffer', None)
+        if buffer is None:
+            buffer = self._receive_buffer = bytearray()
+        while True:
+            self._check_budget()
+            newline = buffer.find(b'\n', 0, 4096)
+            if newline >= 0:
+                result = bytes(buffer[:newline + 1])
+                del buffer[:newline + 1]
+                return result
+            if len(buffer) >= 4096:
+                raise ValueError('TCP protocol line exceeds 4096 bytes')
             try:
-                result.extend(self.read(1))
+                buffer.extend(self._recv(65536 - len(buffer)))
             except (TimeoutError, ConnectionError, OSError) as error:
-                raise type(error)(f'TCP line read failed after {len(result)} bytes: {error}') from error
-            if result[-1] == 10:
-                return bytes(result)
-        raise ValueError('TCP protocol line exceeds 4096 bytes')
+                raise type(error)(f'TCP line read failed after {len(buffer)} bytes: {error}') from error
 
     def write(self, data):
         started = time.monotonic()

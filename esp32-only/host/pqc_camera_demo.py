@@ -277,13 +277,14 @@ def run_once(args) -> int:
     last_verified_frame = None
     recovery_count = 0
     injection_used = False
+    from host.trace_writer import TraceWriter
+    trace_writer = TraceWriter(trace_file)
 
     def record_trace(event):
         event = dict(event)
         event.setdefault('wall_time', datetime.now().astimezone().isoformat())
         event.setdefault('monotonic', time.monotonic())
-        trace_file.write(json.dumps(event, ensure_ascii=False) + '\n')
-        trace_file.flush()
+        trace_writer.write(event)
 
     print(f'[DIAG] {trace_path.resolve()}')
     try:
@@ -307,12 +308,14 @@ def run_once(args) -> int:
                 capture_startup(protocol)
 
             print(request_info(protocol))
+            protocol.rekey_interval = args.rekey_every
+            initial_session = establish_session(protocol) if protocol.mutual_auth else None
             if pipeline_enabled and protocol.pipeline_rekey is not True:
                 raise ProtocolError('Firmware does not advertise pipeline_rekey=1; upload the updated sketch')
             initial_snapshot = request_snapshot(protocol, 'start')
             accepted_boot = initial_snapshot['BOOT_INFO']['boot_id']
 
-            if not args.skip_device_selftest:
+            if not args.skip_device_selftest and not protocol.mutual_auth:
                 protocol.send_line("SELFTEST")
                 selftest = protocol.read_until_prefix("SELFTEST ", timeout=30.0)
                 if "FAIL" in selftest:
@@ -323,13 +326,14 @@ def run_once(args) -> int:
                 print(format_memory_status(request_memory_status(protocol)))
                 last_memory_frame = 0
 
-            protocol.send_line(f"SET_REKEY_INTERVAL {args.rekey_every}")
-            print(f"[PASS] {protocol.expect_prefix('OK rekey_every=')}")
+            if not protocol.mutual_auth:
+                protocol.send_line(f"SET_REKEY_INTERVAL {args.rekey_every}")
+                print(f"[PASS] {protocol.expect_prefix('OK rekey_every=')}")
             configure_camera_mode(protocol, args.mode, getattr(args, 'resolution', 'qvga'))
 
             transcript = hashlib.sha256()
             transcript.update(b"esp32-only/camera-transcript/v1")
-            public_key, kem_ciphertext, shared_secret, epoch = establish_session(protocol)
+            public_key, kem_ciphertext, shared_secret, epoch = initial_session or establish_session(protocol)
             pipeline = None
             if pipeline_enabled:
                 from host.rekey_pipeline import RekeyPipeline

@@ -34,8 +34,13 @@
 /esp32-only/host/camera*.pub
 /esp32-only/devices.json
 /esp32-only/firmware/esp32_pqc_demo/wifi_config.h
+/esp32-only/firmware/esp32_pqc_demo/host_trust.h
+/esp32-only/.host-identity/
 /esp32-only/baselines/*/firmware/esp32_pqc_demo/wifi_config.h
 /esp32-only/baselines/*/host/*.pub
+/esp32-only/baselines/*/.host-identity/
+/esp32-only/baselines/*/devices.json
+/esp32-only/baselines/*/firmware/esp32_pqc_demo/host_trust.h
 
 # Generated test recordings and diagnostic logs
 /log_*.txt
