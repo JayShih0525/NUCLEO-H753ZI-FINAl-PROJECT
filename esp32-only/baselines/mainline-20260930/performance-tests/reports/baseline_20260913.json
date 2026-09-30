@@ -1,0 +1,27 @@
+{
+  "source": "camera_20260913_200602_431876.jsonl",
+  "complete": true,
+  "invalid_lines": [],
+  "configuration": {
+    "transport": "tcp",
+    "seconds": 300.0
+  },
+  "verified_frames": 2790,
+  "recoveries": 0,
+  "stream_fps": null,
+  "interval_fps": 9.301999813226885,
+  "metrics": {
+    "device_capture_encrypt_ms": {
+      "n": 2790,
+      "mean": 1.9172043010752688,
+      "p95": 2.0,
+      "max": 3.0
+    },
+    "verified_interval_ms": {
+      "n": 2789,
+      "mean": 107.50376479024006,
+      "p95": 312.9999999946449,
+      "max": 4796.0000000020955
+    }
+  }
+}

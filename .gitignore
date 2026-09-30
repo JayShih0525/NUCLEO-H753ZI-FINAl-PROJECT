@@ -53,3 +53,6 @@
 # Editor/office temporary files
 ~$*
 *.tmp
+
+/esp32-only/baselines/*/diagnostics/
+/esp32-only/baselines/*/performance-tests/results/

@@ -1,0 +1,490 @@
+{
+  "interrupted": false,
+  "launcher_error": null,
+  "devices": [
+    {
+      "name": "camera1",
+      "pid": 31560,
+      "exit_code": 0,
+      "forced_stop": false,
+      "fingerprint": "98cee748211e32ecd585a6c4c2076385649d40c276a30b0f4deaa1b37fa13d0f",
+      "command": [
+        "C:\\Users\\macho\\Desktop\\PQC\\project\\.venv\\Scripts\\python.exe",
+        "-B",
+        "-u",
+        "-m",
+        "host.pqc_camera_demo",
+        "--host",
+        "172.20.10.13",
+        "--tcp-port",
+        "9000",
+        "--trust-key",
+        "C:\\Users\\macho\\Desktop\\PQC\\project\\esp32-only\\diagnostics\\multi\\20260930_152854_851342\\camera1\\device.pub",
+        "--device-name",
+        "camera1",
+        "--mode",
+        "record",
+        "--seconds",
+        "600.0",
+        "--rekey-every",
+        "10",
+        "--memory-every",
+        "10",
+        "--profile",
+        "--diagnostics",
+        "C:\\Users\\macho\\Desktop\\PQC\\project\\esp32-only\\diagnostics\\multi\\20260930_152854_851342\\camera1\\trace.jsonl",
+        "--response-timeout",
+        "10.0",
+        "--resolution",
+        "qvga",
+        "--rekey-mode",
+        "pipeline",
+        "--display"
+      ],
+      "performance": {
+        "verified_frames": 21807,
+        "observed_elapsed_seconds": 600.6230239868164,
+        "total_avg_fps": 36.30729946922358,
+        "transport_interruptions": 0,
+        "termination": "completed",
+        "completed_segments": 1,
+        "handshake_errors": 0,
+        "pipeline_switches": 2180,
+        "pipeline_ready_ahead": 1913,
+        "pipeline_ready_ahead_ratio": 0.8775229357798165,
+        "pipeline_worker_stack_min_bytes": 14144,
+        "invalid_lines": [],
+        "segments": [
+          {
+            "source": "trace.jsonl",
+            "verified_frames": 21807,
+            "complete": true
+          }
+        ],
+        "metrics": {
+          "handshake_mutual_auth_ms": {
+            "n": 1,
+            "mean": 151.20019996538758,
+            "p95": 151.20019996538758,
+            "max": 151.20019996538758,
+            "total": 151.20019996538758
+          },
+          "handshake_total_ms": {
+            "n": 1,
+            "mean": 152.67579990904778,
+            "p95": 152.67579990904778,
+            "max": 152.67579990904778,
+            "total": 152.67579990904778
+          },
+          "device_capture_encrypt_ms": {
+            "n": 21807,
+            "mean": 1.9750080249461182,
+            "p95": 6.0,
+            "max": 16.0,
+            "total": 43069.0
+          },
+          "request_to_status_ms": {
+            "n": 21807,
+            "mean": 22.24406951447613,
+            "p95": 44.76830002386123,
+            "max": 2456.008000066504,
+            "total": 485076.423902181
+          },
+          "receive_ms": {
+            "n": 21807,
+            "mean": 2.3706209015265363,
+            "p95": 14.23789991531521,
+            "max": 1493.9389999490231,
+            "total": 51696.129999589175
+          },
+          "validate_ms": {
+            "n": 21807,
+            "mean": 0.1701231295710211,
+            "p95": 0.6912999087944627,
+            "max": 20.429400028660893,
+            "total": 3709.8750865552574
+          },
+          "jpeg_bytes": {
+            "n": 21807,
+            "mean": 2719.4324758105195,
+            "p95": 2770,
+            "max": 2784,
+            "total": 59302664
+          },
+          "decode_ms": {
+            "n": 21807,
+            "mean": 0.5162203375545807,
+            "p95": 0.9197999024763703,
+            "max": 15.091400011442602,
+            "total": 11257.216901052743
+          },
+          "verified_interval_ms": {
+            "n": 21806,
+            "mean": 27.513941117125608,
+            "p95": 62.000000034458935,
+            "max": 2484.000000054948,
+            "total": 599969.000000041
+          },
+          "pipeline_keygen_ms": {
+            "n": 2181,
+            "mean": 9.030719853278313,
+            "p95": 10,
+            "max": 12,
+            "total": 19696
+          },
+          "pipeline_sign_ms": {
+            "n": 2181,
+            "mean": 61.88491517652453,
+            "p95": 162,
+            "max": 363,
+            "total": 134971
+          },
+          "pipeline_decap_ms": {
+            "n": 2180,
+            "mean": 12.172935779816514,
+            "p95": 14,
+            "max": 16,
+            "total": 26537
+          },
+          "pipeline_prepare_wall_ms": {
+            "n": 2180,
+            "mean": 176.00354133147124,
+            "p95": 295.20619998220354,
+            "max": 739.2159000737593,
+            "total": 383687.7201026073
+          },
+          "pipeline_worker_stack_min_bytes": {
+            "n": 2180,
+            "mean": 14144.0,
+            "p95": 14144,
+            "max": 14144,
+            "total": 30833920
+          },
+          "pipeline_boundary_wait_ms": {
+            "n": 2180,
+            "mean": 7.463032293823385,
+            "p95": 62.70200002472848,
+            "max": 286.7112000240013,
+            "total": 16269.41040053498
+          },
+          "pipeline_boundary_to_verified_ms": {
+            "n": 2180,
+            "mean": 29.478148210990252,
+            "p95": 88.83850008714944,
+            "max": 302.93720006011426,
+            "total": 64262.36309995875
+          }
+        },
+        "display": {
+          "shown": 21469,
+          "skipped": 338,
+          "imshow_total_ms": 2635.3310025297105,
+          "queue_capacity": 1,
+          "note": "Display overlaps reception; skipped means verified images not displayed, not lost packets."
+        }
+      }
+    },
+    {
+      "name": "camera2",
+      "pid": 18304,
+      "exit_code": 0,
+      "forced_stop": false,
+      "fingerprint": "bdc1a36421f95f3f54f87952ba5d555e619d229ba6e51183718a5ffbfc32bbe1",
+      "command": [
+        "C:\\Users\\macho\\Desktop\\PQC\\project\\.venv\\Scripts\\python.exe",
+        "-B",
+        "-u",
+        "-m",
+        "host.pqc_camera_demo",
+        "--host",
+        "172.20.10.2",
+        "--tcp-port",
+        "9000",
+        "--trust-key",
+        "C:\\Users\\macho\\Desktop\\PQC\\project\\esp32-only\\diagnostics\\multi\\20260930_152854_851342\\camera2\\device.pub",
+        "--device-name",
+        "camera2",
+        "--mode",
+        "record",
+        "--seconds",
+        "600.0",
+        "--rekey-every",
+        "10",
+        "--memory-every",
+        "10",
+        "--profile",
+        "--diagnostics",
+        "C:\\Users\\macho\\Desktop\\PQC\\project\\esp32-only\\diagnostics\\multi\\20260930_152854_851342\\camera2\\trace.jsonl",
+        "--response-timeout",
+        "10.0",
+        "--resolution",
+        "qvga",
+        "--rekey-mode",
+        "pipeline",
+        "--display"
+      ],
+      "performance": {
+        "verified_frames": 24322,
+        "observed_elapsed_seconds": 600.5202050209045,
+        "total_avg_fps": 40.501551482607205,
+        "transport_interruptions": 0,
+        "termination": "completed",
+        "completed_segments": 1,
+        "handshake_errors": 0,
+        "pipeline_switches": 2432,
+        "pipeline_ready_ahead": 2027,
+        "pipeline_ready_ahead_ratio": 0.8334703947368421,
+        "pipeline_worker_stack_min_bytes": 14148,
+        "invalid_lines": [],
+        "segments": [
+          {
+            "source": "trace.jsonl",
+            "verified_frames": 24322,
+            "complete": true
+          }
+        ],
+        "metrics": {
+          "handshake_mutual_auth_ms": {
+            "n": 1,
+            "mean": 104.98389997519553,
+            "p95": 104.98389997519553,
+            "max": 104.98389997519553,
+            "total": 104.98389997519553
+          },
+          "handshake_total_ms": {
+            "n": 1,
+            "mean": 108.91860001720488,
+            "p95": 108.91860001720488,
+            "max": 108.91860001720488,
+            "total": 108.91860001720488
+          },
+          "device_capture_encrypt_ms": {
+            "n": 24322,
+            "mean": 3.0427185264369707,
+            "p95": 8.0,
+            "max": 30.0,
+            "total": 74005.0
+          },
+          "request_to_status_ms": {
+            "n": 24322,
+            "mean": 19.735960023710945,
+            "p95": 38.85720006655902,
+            "max": 352.3560999892652,
+            "total": 480018.0196966976
+          },
+          "receive_ms": {
+            "n": 24322,
+            "mean": 2.4425306264883533,
+            "p95": 11.327300104312599,
+            "max": 2583.8709000963718,
+            "total": 59407.229897449724
+          },
+          "validate_ms": {
+            "n": 24322,
+            "mean": 0.1677125238902066,
+            "p95": 0.6883000023663044,
+            "max": 17.886999994516373,
+            "total": 4079.104006057605
+          },
+          "jpeg_bytes": {
+            "n": 24322,
+            "mean": 3421.1975166515913,
+            "p95": 3432,
+            "max": 3654,
+            "total": 83210366
+          },
+          "decode_ms": {
+            "n": 24322,
+            "mean": 0.5516162404194936,
+            "p95": 0.9332000045105815,
+            "max": 8.591199992224574,
+            "total": 13416.410199482925
+          },
+          "pipeline_keygen_ms": {
+            "n": 2432,
+            "mean": 9.107319078947368,
+            "p95": 10,
+            "max": 11,
+            "total": 22149
+          },
+          "pipeline_sign_ms": {
+            "n": 2432,
+            "mean": 63.372121710526315,
+            "p95": 166,
+            "max": 366,
+            "total": 154121
+          },
+          "verified_interval_ms": {
+            "n": 24321,
+            "mean": 24.667447884545638,
+            "p95": 47.0000000204891,
+            "max": 2670.9999999729916,
+            "total": 599937.0000000345
+          },
+          "pipeline_decap_ms": {
+            "n": 2432,
+            "mean": 12.373355263157896,
+            "p95": 14,
+            "max": 15,
+            "total": 30092
+          },
+          "pipeline_prepare_wall_ms": {
+            "n": 2432,
+            "mean": 164.47103671697207,
+            "p95": 281.7675999831408,
+            "max": 3060.62609993387,
+            "total": 399993.56129567605
+          },
+          "pipeline_worker_stack_min_bytes": {
+            "n": 2432,
+            "mean": 14148.034539473685,
+            "p95": 14148,
+            "max": 14232,
+            "total": 34408020
+          },
+          "pipeline_boundary_wait_ms": {
+            "n": 2432,
+            "mean": 8.534604193205029,
+            "p95": 61.80250004399568,
+            "max": 286.4442999707535,
+            "total": 20756.15739787463
+          },
+          "pipeline_boundary_to_verified_ms": {
+            "n": 2432,
+            "mean": 27.68051348745135,
+            "p95": 88.38700002525002,
+            "max": 301.87999992631376,
+            "total": 67319.00880148169
+          }
+        },
+        "display": {
+          "shown": 23929,
+          "skipped": 393,
+          "imshow_total_ms": 2807.173389592208,
+          "queue_capacity": 1,
+          "note": "Display overlaps reception; skipped means verified images not displayed, not lost packets."
+        }
+      }
+    }
+  ],
+  "performance": {
+    "verified_frames": 46129,
+    "observed_elapsed_seconds": 600.6230239868164,
+    "total_avg_fps": 76.80191760516415,
+    "metrics": {
+      "handshake_mutual_auth_ms": {
+        "n": 2,
+        "mean": 128.09204997029155,
+        "p95": 151.20019996538758,
+        "max": 151.20019996538758,
+        "total": 256.1840999405831
+      },
+      "handshake_total_ms": {
+        "n": 2,
+        "mean": 130.79719996312633,
+        "p95": 152.67579990904778,
+        "max": 152.67579990904778,
+        "total": 261.59439992625266
+      },
+      "device_capture_encrypt_ms": {
+        "n": 46129,
+        "mean": 2.5379696069717532,
+        "p95": 7.0,
+        "max": 30.0,
+        "total": 117074.0
+      },
+      "request_to_status_ms": {
+        "n": 46129,
+        "mean": 20.921642428816547,
+        "p95": 41.91999998874962,
+        "max": 2456.008000066504,
+        "total": 965094.4435988786
+      },
+      "receive_ms": {
+        "n": 46129,
+        "mean": 2.4085360596813046,
+        "p95": 12.39960000384599,
+        "max": 2583.8709000963718,
+        "total": 111103.3598970389
+      },
+      "validate_ms": {
+        "n": 46129,
+        "mean": 0.168852112393784,
+        "p95": 0.6897000130265951,
+        "max": 20.429400028660893,
+        "total": 7788.979092612863
+      },
+      "jpeg_bytes": {
+        "n": 46129,
+        "mean": 3089.445468143684,
+        "p95": 3430,
+        "max": 3654,
+        "total": 142513030
+      },
+      "decode_ms": {
+        "n": 46129,
+        "mean": 0.5348831993005629,
+        "p95": 0.9278999641537666,
+        "max": 15.091400011442602,
+        "total": 24673.62710053567
+      },
+      "verified_interval_ms": {
+        "n": 46127,
+        "mean": 26.013094283176347,
+        "p95": 61.99999991804361,
+        "max": 2670.9999999729916,
+        "total": 1199906.0000000754
+      },
+      "pipeline_keygen_ms": {
+        "n": 4613,
+        "mean": 9.071103403425102,
+        "p95": 10,
+        "max": 12,
+        "total": 41845
+      },
+      "pipeline_sign_ms": {
+        "n": 4613,
+        "mean": 62.66897897246911,
+        "p95": 165,
+        "max": 366,
+        "total": 289092
+      },
+      "pipeline_decap_ms": {
+        "n": 4612,
+        "mean": 12.278620988725065,
+        "p95": 14,
+        "max": 16,
+        "total": 56629
+      },
+      "pipeline_prepare_wall_ms": {
+        "n": 4612,
+        "mean": 169.92222059806664,
+        "p95": 290.7912000082433,
+        "max": 3060.62609993387,
+        "total": 783681.2813982833
+      },
+      "pipeline_worker_stack_min_bytes": {
+        "n": 4612,
+        "mean": 14146.12749349523,
+        "p95": 14148,
+        "max": 14232,
+        "total": 65241940
+      },
+      "pipeline_boundary_wait_ms": {
+        "n": 4612,
+        "mean": 8.028093624980402,
+        "p95": 62.425000010989606,
+        "max": 286.7112000240013,
+        "total": 37025.56779840961
+      },
+      "pipeline_boundary_to_verified_ms": {
+        "n": 4612,
+        "mean": 28.53021940620998,
+        "p95": 88.83850008714944,
+        "max": 302.93720006011426,
+        "total": 131581.37190144043
+      }
+    },
+    "notes": "FPS = verified frames / observed wall time, including startup, reconnect gaps and finalize. Overall FPS is combined throughput of all devices, not per-camera FPS. Metric means pool individual samples; handshake metrics include successful handshakes only. Durations overlap; do not sum all metric totals. Missing data is not zero or proof of success."
+  }
+}
