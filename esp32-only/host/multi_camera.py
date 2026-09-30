@@ -85,6 +85,7 @@ def command_for(device, folder, seconds, rekey, memory, display, rekey_mode='blo
                '--mode', 'record', '--seconds', str(seconds), '--rekey-every', str(rekey),
                '--memory-every', str(memory), '--profile', '--diagnostics', str(folder / 'trace.jsonl')]
     command += ['--response-timeout', str(response_timeout), '--resolution', resolution]
+    command += ['--rediscover']
     return command + (['--rekey-mode', rekey_mode] if rekey_mode != 'blocking' else []) + (['--display'] if display else [])
 
 

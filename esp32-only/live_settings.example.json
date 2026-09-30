@@ -1,0 +1,10 @@
+{
+  "resolution": "qvga",
+  "rekey_every": 10,
+  "response_timeout": 10.0,
+  "discovery_timeout": 5.0,
+  "display": true,
+  "log_mode": "normal",
+  "log_max_bytes": 2097152,
+  "log_backups": 3
+}

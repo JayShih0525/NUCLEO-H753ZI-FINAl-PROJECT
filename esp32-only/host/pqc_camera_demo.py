@@ -192,7 +192,7 @@ def configure_camera_mode(protocol, mode, resolution):
                    jpeg_quality=12 if mode == 'photo' else 15)
 
 
-def parse_arguments() -> argparse.Namespace:
+def parse_arguments(argv=None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Encrypted ESP32-S3-CAM photo and recording demo"
     )
@@ -226,7 +226,9 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument('--inject-camera-timeout-at', type=int, default=0,
                         help='test only: abandon tag header once at request N; 0 disables')
     parser.add_argument('--diagnostics', type=Path, help='JSONL trace path (default: diagnostics/camera_TIMESTAMP.jsonl)')
-    return parser.parse_args()
+    parser.add_argument('--rediscover', action='store_true', help='rediscover pinned camera after repeated TCP failures')
+    parser.add_argument('--discovery-timeout', type=float, default=5.0)
+    return parser.parse_args(argv)
 
 
 def run_once(args) -> int:
@@ -235,6 +237,8 @@ def run_once(args) -> int:
     response_timeout = getattr(args, "response_timeout", 10.0)
     if not math.isfinite(response_timeout) or response_timeout <= 0:
         raise ValueError("response-timeout must be positive and finite")
+    if not math.isfinite(getattr(args, 'discovery_timeout', 5.0)) or getattr(args, 'discovery_timeout', 5.0) <= 0:
+        raise ValueError('discovery-timeout must be positive and finite')
     use_tcp = bool(args.host)
     pipeline_enabled = getattr(args, 'rekey_mode', 'blocking') == 'pipeline'
     if pipeline_enabled and (not use_tcp or args.mode != 'record' or args.rekey_every < 3):
@@ -273,7 +277,10 @@ def run_once(args) -> int:
 
     trace_path = args.diagnostics or Path('diagnostics') / ('camera_' + datetime.now().strftime('%Y%m%d_%H%M%S_%f') + '.jsonl')
     trace_path.parent.mkdir(parents=True, exist_ok=True)
-    trace_file = trace_path.open('x', encoding='utf-8')
+    trace_file = getattr(args, '_trace_file', None)
+    owns_trace = trace_file is None
+    if owns_trace:
+        trace_file = trace_path.open('x', encoding='utf-8')
     last_verified_frame = None
     recovery_count = 0
     injection_used = False
@@ -284,13 +291,20 @@ def run_once(args) -> int:
         event = dict(event)
         event.setdefault('wall_time', datetime.now().astimezone().isoformat())
         event.setdefault('monotonic', time.monotonic())
+        observer = getattr(args, '_trace_observer', None)
+        if observer is not None:
+            observer(event)
+        if getattr(args, 'log_mode', 'diagnostic') == 'normal' and event['event'] not in {
+                'port_open_begin', 'mutual_auth_verified', 'stream_start', 'stream_end',
+                'run_error', 'run_complete', 'user_stop', 'tcp_command_deadline'}:
+            return
         trace_writer.write(event)
 
     print(f'[DIAG] {trace_path.resolve()}')
     try:
         record_trace(dict(event='port_open_begin', port=args.port, baud=args.baud,
                           transport='tcp' if use_tcp else 'uart', host=args.host, tcp_port=args.tcp_port,
-                          seconds=args.seconds, mode=args.mode,
+                          seconds=None if getattr(args, 'continuous', False) else args.seconds, mode=args.mode,
                           output=str(output) if output is not None else None, save_video=False))
         connection = (TcpConnection(args.host, args.tcp_port, timeout=response_timeout, diagnostic=record_trace,
                                     command_timeout=response_timeout, stop_event=getattr(args, "_stop_event", None)) if use_tcp
@@ -308,6 +322,8 @@ def run_once(args) -> int:
                 capture_startup(protocol)
 
             print(request_info(protocol))
+            if getattr(args, 'require_mutual', False) and not protocol.mutual_auth:
+                raise ProtocolError('Live mode requires mutual-auth v6 firmware')
             protocol.rekey_interval = args.rekey_every
             initial_session = establish_session(protocol) if protocol.mutual_auth else None
             if pipeline_enabled and protocol.pipeline_rekey is not True:
@@ -519,7 +535,10 @@ def run_once(args) -> int:
             if not (args.host and args.mode == 'record' and getattr(args, 'auto_reconnect', False)):
                 cv2.destroyAllWindows()
         finally:
-            trace_file.close()
+            if owns_trace:
+                trace_file.close()
+            else:
+                trace_file.flush()
 
     if started is None or frames_received == 0:
         raise RuntimeError("No encrypted camera frames were received")

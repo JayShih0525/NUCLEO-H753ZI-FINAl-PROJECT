@@ -1,5 +1,9 @@
 # ESP32-S3 加密相機
 
+**第一次從 GitHub 下載？從 [首次啟動指南](FIRST_START.md) 開始：建立自己的筆電身分、設定 WiFi、燒錄、登錄 ESP32，再啟動影像。**
+
+> 2026-09-30 後續 Host 更新：新增 `python -u -m host.live_camera` 無參數長期入口（或 start_live.cmd）、按可信身分重新探索、影像年齡與有界日誌。已保存 baseline 不變；本次新增恢復流程待實機驗收。操作與邊界見 [長期使用](docs/LONG_RUNNING_HOST.md)。
+
 更新：2026-09-30。主線已完成內網探索、雙向身分驗證、多裝置 WiFi 加密影像與背景換鑰。兩台 QVGA / rekey=10 / pipeline 的 10 分鐘測試正常完成，平均 36.31 / 40.50 FPS，無重連或重啟；仍有偶發約 2.5 秒停頓。
 
 完整實作狀態、數據與限制以 [CURRENT_STATUS](docs/CURRENT_STATUS.md) 為準。舊 README 已移至 [歷史版本](archive/history/README_before_20260930_audit.md)，不要使用其中「尚未雙向認證／雙台驗收」等舊狀態判斷現在版本。

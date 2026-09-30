@@ -18,6 +18,7 @@ class LatestDisplay:
         self.consumed = 0
         self.skipped = 0
         self.status = 'Connecting / authenticating'
+        self.last_verified_at = None
 
     def publish(self, image):
         with self.lock:
@@ -25,6 +26,7 @@ class LatestDisplay:
                 self.skipped += 1
             self.image = image
             self.version += 1
+            self.last_verified_at = time.monotonic()
             self.status = ''
 
     def set_status(self, status):
@@ -36,10 +38,15 @@ class LatestDisplay:
             self.consumed = self.version
             return self.image, self.version, self.status
 
+    def age(self):
+        with self.lock:
+            return None if self.last_verified_at is None else max(0, time.monotonic() - self.last_verified_at)
+
 
 def run_with_display(args, receiver, cv2):
     import numpy as np
     view = LatestDisplay()
+    external_stop = getattr(args, '_stop_event', None)
     args._live_display = view
     args._stop_event = view.stop
     outcome = []
@@ -57,7 +64,12 @@ def run_with_display(args, receiver, cv2):
     display_ms = 0.0
     try:
         while worker.is_alive():
+            if external_stop is not None and external_stop.is_set():
+                view.stop.set()
             image, version, status = view.snapshot()
+            age = view.age()
+            if age is not None and age >= 1:
+                status = f'{status or "Waiting for data"} | last verified {int(age)}s ago'
             if shown is not None and version == shown[0] and not status and time.monotonic() - shown_at > 1:
                 status = 'Waiting for data'
             if shown != (version, status):
@@ -74,6 +86,8 @@ def run_with_display(args, receiver, cv2):
                 shown = (version, status)
             if cv2.waitKey(1) & 0xff in (ord('q'), 27) or cv2.getWindowProperty(title, cv2.WND_PROP_VISIBLE) < 1:
                 view.stop.set()
+                if external_stop is not None:
+                    external_stop.set()
             time.sleep(.005)
     finally:
         view.stop.set()

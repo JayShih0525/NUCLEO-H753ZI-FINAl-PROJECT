@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parent.parent
 IDENTITY = ROOT / '.host-identity' / 'identity.json'
 HEADER = ROOT / 'firmware' / 'esp32_pqc_demo' / 'host_trust.h'
 
+#python -m host.host_identity --additional-public-key laptop2.pub --additional-public-key laptop3.pub
 
 def load_identity(path=IDENTITY):
     data = json.loads(Path(path).read_text(encoding='utf-8'))
