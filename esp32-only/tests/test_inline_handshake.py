@@ -42,10 +42,16 @@ class InlineHandshakeTests(unittest.TestCase):
     def test_negotiation_requires_version_and_capability(self):
         for info, expected in [('proto=5 inline_rekey=1', True), ('proto=4', False),
                                ('proto=5 inline_rekey=0', False), ('proto=6 inline_rekey=1', True),
-                               ('proto=7 inline_rekey=1', False)]:
+                               ('proto=7 inline_rekey=1 mutual_auth=1', True),
+                               ('proto=8 inline_rekey=1', False)]:
             protocol = SerialProtocol(Wire(f'INFO {info}\n'.encode()))
             request_info(protocol)
             self.assertEqual(protocol.inline_rekey, expected)
+
+    def test_v7_cannot_negotiate_without_mutual_auth(self):
+        protocol = SerialProtocol(Wire(b'INFO proto=7 inline_rekey=1\n'))
+        with self.assertRaises(ProtocolError):
+            request_info(protocol)
 
     def test_full_handshake_without_ready_preserves_crypto_inputs(self):
         public, ciphertext, secret, signature, proof = b'p'*1184, b'c'*1088, b'k'*32, b's'*2420, b'h'*32

@@ -1,14 +1,14 @@
 # 長期使用入口與重新探索（2026-09-30）
 
-本輪只改 Host，不需重燒已使用 v6 的 ESP32；所有既有 baseline 不修改。新的實機斷網／換 IP 驗收尚待使用者執行。
+9/30 的長期入口只改 Host。10/4 主線新增 v7 控制通道，現在使用此入口須重新燒錄 v7；保留既有 NVS 身分與信任檔，所有 baseline 不修改。見 [v7 規格與验收](CONTROL_RECORDS_V7.md)。
 
 ## 啟動與設定
 
-在 esp32-only 執行 `python -u -m host.live_camera`，或雙擊 start_live.cmd（使用專案 .venv）。沿用 devices.json、各台 .pub 與 .host-identity，不複製 baseline 私鑰、不重做登錄。啟動所有已設定裝置，包含 disabled 項目，與 --discover 的選擇方式一致。
+在 esp32-only 執行 `python -u -m host.live_camera`，或雙擊 start_live.cmd（使用專案 .venv）。沿用 devices.json、各台 .pub 與 .host-identity，不複製 baseline 私鑰、不重做登錄。2026-10-01 更新：只啟動 enabled=true（省略時為 true）的裝置，enabled=false 不讀取其公鑰。每台設定獨立檢查，缺檔／格式錯誤顯示 [SKIP]；名稱或公鑰身分重複時跳過全部衝突項目，其餘合法裝置照常啟動。live 的 host 欄位不作連線地址，仍透過探索尋找；因此不以舊 IP 判斷衝突。與有限時間 multi_camera --discover 的選擇方式不同。選取及跳過原因存 diagnostics/live/startup.json，每次啟動覆寫；有跳過錯誤時，合法裝置仍運行，但最後回傳非零退出碼。無合法啟用裝置或整份 JSON 解析／結構錯誤則停止。
 
 不用提供 IP 或秒數。每台獨立搜尋；找不到就等待重試，其他台仍可串流。Q / Esc 或關閉任一影像視窗會停止全部，terminal Ctrl+C 也可停止。網路操作有期限，停止可能需等待探索或初次 socket connect 返回；超過收尾期限才強制結束，並提示摘要可能不完整。單台身分／協定驗證失敗會停止該台並在 terminal 顯示原因，不無限重試驗章失敗。
 
-可將 live_settings.example.json 複製為 live_settings.json 後修改解析度等參數。預設 QVGA、rekey=10、pipeline、display=true、normal 紀錄。沒有以放寬換鑰間隔換 FPS。長期入口要求 mutual-auth v6，不接受舊版單向認證。一般模式不額外查詢 MEMORY_INFO；需要效能比較及記憶體資料請使用原 multi_camera 測試入口。
+可將 live_settings.example.json 複製為 live_settings.json 後修改解析度等參數。預設 QVGA、rekey=10、pipeline、display=true、normal 紀錄。沒有以放寬換鑰間隔換 FPS。長期入口要求 mutual-auth v7 與記錄層，不接受舊版韌體。一般模式不額外查詢 MEMORY_INFO；需要效能比較及記憶體資料請使用原 multi_camera 測試入口。
 
 ## 重連與安全邊界
 
@@ -34,4 +34,4 @@ summary.json 在本次正常收尾時保存本次所有已驗證幀數、含搜�
 2. 關閉手機熱點約 10 秒，再開啟；不按板子 Reset、不重啟 Host，觀察重新認證恢復。
 3. 按 Q 停止全部，確認各台 summary 的 termination 與幀數。
 
-手機分到相同 IP 也能驗證斷網恢復，但不算實際換 IP 驗收；地址變更、歧義、驗章錯誤停止等分支先由本機測試覆蓋。此次不改韌體控制命令保護或 Host 公鑰撤銷方式，留下一階段處理。
+手機分到相同 IP 也能驗證斷網恢復，但不算實際換 IP 驗收；地址變更、歧義、驗章錯誤停止等分支先由本機測試覆蓋。10/4 已另加 v7 控制通道，Host 公鑰撤銷方式仍留待下一階段。

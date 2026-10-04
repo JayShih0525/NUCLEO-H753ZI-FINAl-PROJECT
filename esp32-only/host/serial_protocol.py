@@ -22,6 +22,7 @@ class SerialProtocol:
     inline_rekey: bool = False
     pipeline_rekey: bool = False
     mutual_auth: bool = False
+    secure_records: bool = False
 
     def send_pipeline_request(self, payload: bytes) -> None:
         if self.pipeline_rekey is not True or not 42 <= len(payload) <= 1130:

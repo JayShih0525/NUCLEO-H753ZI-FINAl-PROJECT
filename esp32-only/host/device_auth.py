@@ -9,6 +9,7 @@ from pathlib import Path
 
 from pqcrypto.sign import ml_dsa_44
 from host.serial_protocol import ProtocolError
+from host.trust_store import require_not_revoked
 
 DOMAIN = b'esp32-only/auth-kem/v1\x00'
 CONFIRM_DOMAIN = b'esp32-only/confirm/v1\x00'
@@ -26,12 +27,23 @@ def load_trusted_key(path=None) -> bytes:
         raise ProtocolError('No trusted device key. Run python -m host.enroll_device first; see AUTHENTICATION.md.') from error
     if len(key) != 1312:
         raise ProtocolError('Trusted ML-DSA key must contain exactly 1312 bytes')
+    check_local_policy(key)
     return key
+
+
+def check_local_policy(key):
+    try:
+        require_not_revoked(key)
+    except (OSError, ValueError) as error:
+        raise ProtocolError(f'Device trust policy rejected: {error}') from error
 
 
 def protocol_trusted_key(protocol) -> bytes:
     key = getattr(protocol, 'trusted_key', None)
-    return key if isinstance(key, bytes) else load_trusted_key()
+    if not isinstance(key, bytes):
+        return load_trusted_key()
+    check_local_policy(key)
+    return key
 
 
 def proof_message(challenge: bytes, kem_key: bytes) -> bytes:

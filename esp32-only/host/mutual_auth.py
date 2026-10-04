@@ -1,4 +1,4 @@
-"""v6 mutual ML-DSA authentication, transcript-bound KEM, bilateral key proof."""
+"""v6/v7 mutual ML-DSA authentication, transcript-bound KEM and key proof."""
 import hashlib
 import hmac
 import os
@@ -27,6 +27,11 @@ def context(host_pk, device_pk, nonce, device_nonce, kem_pk, limit):
 
 def establish(protocol):
     started = time.perf_counter()
+    # The signed domain binds the record-layer version, independently of INFO.
+    domains = (DEVICE, HOST, HOST_KEY, DEVICE_KEY)
+    if protocol.secure_records:
+        domains = tuple(value.replace(b'/v1\0', b'/v2\0') for value in domains)
+    device_domain, host_domain, host_key_domain, device_key_domain = domains
     try:
         host_pk, host_sk = load_identity()
     except (OSError, ValueError, KeyError) as error:
@@ -40,12 +45,12 @@ def establish(protocol):
     kem_pk = protocol.receive_frame(1184)
     signature = protocol.receive_frame(2420)
     transcript = context(host_pk, trusted, nonce, device_nonce, kem_pk, limit)
-    if not ml_dsa_44.verify(trusted, DEVICE + transcript, signature):
+    if not ml_dsa_44.verify(trusted, device_domain + transcript, signature):
         raise ProtocolError('Mutual authentication: device proof rejected')
     ct, key = ml_kem_768.encrypt(kem_pk)
     binding = transcript + ct
-    signature = ml_dsa_44.sign(host_sk, HOST + binding)
-    proof = hmac.digest(key, HOST_KEY + binding, 'sha256')
+    signature = ml_dsa_44.sign(host_sk, host_domain + binding)
+    proof = hmac.digest(key, host_key_domain + binding, 'sha256')
     protocol.send_command_frame('MUTUAL_FINISH', ct + signature + proof)
     result = protocol.expect_prefix('KEM_OK ')
     try:
@@ -56,9 +61,12 @@ def establish(protocol):
     except (ValueError, KeyError) as error:
         raise ProtocolError('Invalid mutual session response') from error
     actual = protocol.receive_frame(32)
-    expected = hmac.digest(key, DEVICE_KEY + binding + struct.pack('>I', epoch), 'sha256')
+    expected = hmac.digest(key, device_key_domain + binding + struct.pack('>I', epoch), 'sha256')
     if not hmac.compare_digest(expected, actual):
         raise ProtocolError('Mutual authentication: device session proof rejected')
+    if protocol.secure_records:
+        from host.secure_records import activate
+        activate(protocol, key, binding, epoch)
     elapsed = (time.perf_counter() - started) * 1000
     timings = getattr(protocol, '_handshake_timings', None)
     if isinstance(timings, dict):

@@ -1,13 +1,13 @@
 """No-argument, continuous, independently recovering cameras with bounded logs."""
 import contextlib
-import hashlib
 import json
 import multiprocessing as mp
 from pathlib import Path
 import sys
 import time
 
-from host.multi_camera import ROOT, load_devices
+from host.multi_camera import ROOT
+from host.live_devices import load_live_devices
 
 
 def load_settings(path):
@@ -85,21 +85,29 @@ def worker(device, key, settings, stop):
 def run():
     settings = load_settings(ROOT / 'live_settings.json')
     config = ROOT / 'devices.json'
-    data = json.loads(config.read_text(encoding='utf-8-sig'))
-    # Same meaning as multi_camera --discover: all registered entries.
-    overrides = {item['name']: f"{item['name']}.invalid" for item in data['devices']}
-    devices = load_devices(config, overrides)
-    keys = [device.trust_key.read_bytes() for device in devices]
-    if any(hashlib.sha256(key).hexdigest() != device.fingerprint for device, key in zip(devices, keys)):
-        raise ValueError('Trust file changed during preflight')
+    accepted, issues = load_live_devices(config)
+    for issue in issues:
+        print(f'[SKIP] {issue}', file=sys.stderr, flush=True)
+    report = ROOT / 'diagnostics' / 'live' / 'startup.json'
+    report.parent.mkdir(parents=True, exist_ok=True)
+    report.write_text(json.dumps(dict(started_at=time.time(),
+        selected=[device.name for device, _ in accepted], skipped=issues), indent=2), encoding='utf-8')
+    if not accepted:
+        print('No valid enabled devices; check devices.json and public key files.', file=sys.stderr)
+        return 1
     ctx = mp.get_context('spawn')
     stop = ctx.Event()
     processes = []
     print('Live cameras: Q / Esc in a camera window or Ctrl+C in terminal stops all. Logs: diagnostics/live/')
     try:
-        for device, key in zip(devices, keys):
+        for device, key in accepted:
             process = ctx.Process(target=worker, args=(device, key, settings, stop), name=device.name)
-            process.start()
+            try:
+                process.start()
+            except OSError as error:
+                issues.append(f'{device.name}: process start failed: {error}')
+                print(f'[SKIP] {issues[-1]}', file=sys.stderr, flush=True)
+                continue
             processes.append(process)
         reported = set()
         while any(p.is_alive() for p in processes) and not stop.is_set():
@@ -119,7 +127,7 @@ def run():
                 print(f'{process.name}: forced stop; final summary may be incomplete', file=sys.stderr)
                 process.terminate()
                 process.join()
-    return int(any(p.exitcode != 0 for p in processes))
+    return int(bool(issues) or any(p.exitcode != 0 for p in processes))
 
 
 def main():

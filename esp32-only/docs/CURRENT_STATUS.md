@@ -1,5 +1,7 @@
 # 主線狀態與後續驗收
 
+> 2026-10-04：主線 WiFi 已加入 v7 驗證記錄層，雙台 pipeline／blocking／斷網恢復短測通過；使用者確認停止再開正常，尚非長期或攻擊安全驗收。見 [CONTROL_RECORDS_V7](CONTROL_RECORDS_V7.md)。另加入 [信任管理](TRUST_MANAGEMENT.md)，撤銷實機驗收待做；下方 v6 歷史數據不能算作 v7 效能基準。
+
 > 2026-09-30 保存基準後更新：下列「還未完成」是 mainline-20260930 凍結時的狀態。現在已加入 live_camera 長期入口、重新探索、影像年齡和有界日誌，詳細實作與待實機驗收範圍見 [LONG_RUNNING_HOST](LONG_RUNNING_HOST.md)。有限時間 multi_camera 仍保留完整、不輪替的診斷紀錄。
 
 核對日期：2026-09-30。以 host、firmware 原始碼及本機實測為準；歷史實驗文件不代表現行規格。

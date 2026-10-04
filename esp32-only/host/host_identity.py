@@ -4,6 +4,8 @@ import hashlib
 import json
 from pathlib import Path
 from pqcrypto.sign import ml_dsa_44
+from host.trust_store import read_host_keys, write_host_keys
+from host.live_logging import InstanceLock
 
 ROOT = Path(__file__).resolve().parent.parent
 IDENTITY = ROOT / '.host-identity' / 'identity.json'
@@ -22,7 +24,7 @@ def load_identity(path=IDENTITY):
     return pk, sk
 
 
-def main(argv=None):
+def _main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--identity', type=Path, default=IDENTITY)
     parser.add_argument('--header', type=Path, default=HEADER)
@@ -34,19 +36,28 @@ def main(argv=None):
         with args.identity.open('x', encoding='utf-8') as out:
             json.dump(dict(public_key=pk.hex(), secret_key=sk.hex()), out)
     pk, _ = load_identity(args.identity)
-    keys = [pk] + [path.read_bytes() for path in args.additional_public_key]
+    # Rerunning setup must not silently delete other trusted Hosts or re-add a
+    # previously removed local identity. Explicit management handles changes.
+    keys = read_host_keys(args.header) if args.header.exists() else [pk]
+    if pk not in keys:
+        parser.error('Existing allowlist excludes this Host. Use trust_manage host-add explicitly; refusing to restore it silently.')
+    for path in args.additional_public_key:
+        additional = path.read_bytes()
+        if additional not in keys:
+            keys.append(additional)
     if not 1 <= len(keys) <= 4 or any(len(key) != 1312 for key in keys) or len(set(keys)) != len(keys):
         parser.error('Allowlist requires 1..4 distinct 1312-byte public keys')
-    rows = ['{' + ','.join(f'0x{byte:02x}' for byte in key) + '}' for key in keys]
-    args.header.parent.mkdir(parents=True, exist_ok=True)
-    args.header.write_text('#pragma once\n#include <stdint.h>\n'
-                          f'constexpr unsigned int HOST_TRUST_COUNT = {len(keys)};\n'
-                          'static const uint8_t HOST_TRUST_KEYS[][1312] = {\n' + ',\n'.join(rows) + '\n};\n', encoding='utf-8')
+    write_host_keys(args.header, keys)
     args.identity.with_suffix('.pub').write_bytes(pk)
     print(f'Host fingerprint: {hashlib.sha256(pk).hexdigest()}')
     print(f'Identity retained at: {args.identity.resolve()} (private; do not share)')
     print(f'Firmware allowlist: {args.header.resolve()}; upload to each ESP32')
     return 0
+
+
+def main(argv=None):
+    with InstanceLock(ROOT / '.trust' / 'management.lock', 'Another trust management command is running'):
+        return _main(argv)
 
 
 if __name__ == '__main__':

@@ -1,5 +1,9 @@
 # ESP32-S3 加密相機
 
+> 信任管理入口：`python -m host.trust_manage device-list`／`host-list`。支援裝置加入、按指紋撤銷／恢復，以及韌體 Host 白名單新增／移除；板端變更仍需重燒，未改成 NVS 遠端管理。見 [信任管理操作](docs/TRUST_MANAGEMENT.md)。
+
+> 2026-10-04 主線更新：WiFi 協定 v7 新增控制命令與回覆的完整性、連線綁定及順序保護。`live_camera` 現在要求重新燒錄 v7；既有 `.pub`、Host 身分與 NVS 不需重建。軟體驗證與實機驗收分開，規格及短測步驟見 [v7 控制通道](docs/CONTROL_RECORDS_V7.md)。以下歷史 FPS 不代表 v7 的效能。
+
 **第一次從 GitHub 下載？從 [首次啟動指南](FIRST_START.md) 開始：建立自己的筆電身分、設定 WiFi、燒錄、登錄 ESP32，再啟動影像。**
 
 > 2026-09-30 後續 Host 更新：新增 `python -u -m host.live_camera` 無參數長期入口（或 start_live.cmd）、按可信身分重新探索、影像年齡與有界日誌。已保存 baseline 不變；本次新增恢復流程待實機驗收。操作與邊界見 [長期使用](docs/LONG_RUNNING_HOST.md)。
@@ -23,13 +27,13 @@ python -u -m host.multi_camera --discover --seconds 600 --resolution qvga --reke
 
 韌體燒錄 firmware/esp32_pqc_demo/esp32_pqc_demo.ino。wifi_config.h 存本機 WiFi 設定；host.host_identity 產生或沿用 .host-identity/identity.json，輸出只含公鑰的 host_trust.h。私鑰不可燒到板子或提交 Git。按實際模組設定 Flash / PSRAM，保留 NVS 裝置身分。應用 Serial 是 921600，與上傳速度不同；WiFi 使用不需 COM 資料線，只需供電。
 
-record 模式目前驗證／顯示影像，不存 AVI。multi_camera 預設 60 秒、pipeline；直接 pqc_camera_demo 預設 10 秒、blocking。測試時明確指定參數。主線尚未加入無限使用入口、IP 變更後重新探索及日誌容量限制。
+record 模式目前驗證／顯示影像，不存 AVI。multi_camera 預設 60 秒、pipeline；直接 pqc_camera_demo 預設 10 秒、blocking。測試時明確指定參數。無限使用入口、重新探索及有界日誌由 `live_camera` 提供，見長期使用文件。
 
 ## 協定如何合作
 
 初始／重連：探索地址 → 本機固定裝置公鑰 → MUTUAL_BEGIN / MUTUAL_FINISH → 雙向 DSA 與 session key proof → AES-GCM 影像。每幀驗證 metadata、tag 與序號；不是每幀簽 DSA。pipeline 在目前 session 下提前準備下一把 key，於門檻切換；blocking 則重新握手。
 
-TCP 是位元組串流，64 KiB 是 Host 一次讀取上限，不是等待集滿的封包大小。半包失敗不直接跳過；TCP 恢復需丟棄舊連線、重新認證。部分文字控制命令仍未全面 MAC／AEAD 保護；不是 TLS 或完整安全認證產品。UART 不包含 WiFi v6 的 Host 存取限制。
+TCP 是位元組串流，64 KiB 是 Host 一次讀取上限，不是等待集滿的封包大小。半包失敗不直接跳過；TCP 恢復需丟棄舊連線、重新認證。WiFi v7 握手後的位元組都透過 HMAC 記錄層保護；控制文字仍可被觀察，影像保密由 AES-GCM 提供。這不是 TLS 或完整安全認證產品。UART 不包含 WiFi 的 Host 存取限制。
 
 ## 閱讀與資料夾
 

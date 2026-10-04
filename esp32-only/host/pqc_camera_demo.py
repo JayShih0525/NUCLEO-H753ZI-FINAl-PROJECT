@@ -294,11 +294,24 @@ def run_once(args) -> int:
         observer = getattr(args, '_trace_observer', None)
         if observer is not None:
             observer(event)
-        if getattr(args, 'log_mode', 'diagnostic') == 'normal' and event['event'] not in {
-                'port_open_begin', 'mutual_auth_verified', 'stream_start', 'stream_end',
-                'run_error', 'run_complete', 'user_stop', 'tcp_command_deadline'}:
+        startup_command = event.get('stage') == 'startup' and event['event'] == 'command'
+        if view is not None:
+            if event['event'] == 'port_open_begin':
+                view.set_status('Connecting TCP')
+            elif startup_command:
+                view.set_status('Waiting: ' + event.get('command', 'startup'))
+            elif event['event'] == 'mutual_auth_verified':
+                view.set_status('Authenticated - preparing camera')
+            elif event['event'] == 'stream_start':
+                view.set_status('Waiting for first verified image')
+        keep_startup = event.get('stage') == 'startup' and event['event'] in {'command', 'command_sent', 'response'}
+        if getattr(args, 'log_mode', 'diagnostic') == 'normal' and not keep_startup and event['event'] not in {
+                'port_open_begin', 'mutual_auth_verified', 'secure_records_active', 'stream_start', 'stream_end',
+                'tcp_connected', 'run_error', 'run_complete', 'user_stop', 'tcp_command_deadline'}:
             return
         trace_writer.write(event)
+        if startup_command:
+            trace_file.flush()
 
     print(f'[DIAG] {trace_path.resolve()}')
     try:
@@ -322,8 +335,8 @@ def run_once(args) -> int:
                 capture_startup(protocol)
 
             print(request_info(protocol))
-            if getattr(args, 'require_mutual', False) and not protocol.mutual_auth:
-                raise ProtocolError('Live mode requires mutual-auth v6 firmware')
+            if getattr(args, 'require_mutual', False) and not (protocol.mutual_auth and protocol.secure_records):
+                raise ProtocolError('Live mode requires v7 authenticated-record firmware; upload the updated sketch')
             protocol.rekey_interval = args.rekey_every
             initial_session = establish_session(protocol) if protocol.mutual_auth else None
             if pipeline_enabled and protocol.pipeline_rekey is not True:

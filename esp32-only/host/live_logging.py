@@ -8,8 +8,9 @@ import os
 
 class InstanceLock:
     """OS-held lock; automatically released after a crash, no stale PID recovery."""
-    def __init__(self, path):
+    def __init__(self, path, message='Another live camera launcher is already running'):
         self.path = Path(path)
+        self.message = message
 
     def __enter__(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -27,7 +28,7 @@ class InstanceLock:
                 fcntl.flock(self.file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError as error:
             self.file.close()
-            raise RuntimeError('Another live camera launcher is already running') from error
+            raise RuntimeError(self.message) from error
         return self
 
     def __exit__(self, *_):

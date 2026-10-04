@@ -7,6 +7,9 @@
 
 namespace demo_protocol {
 
+void resetRecords();
+bool startRecords(const uint8_t secret[32], const uint8_t bindingHash[32], uint32_t epoch);
+
 bool readLine(char *output, size_t capacity, uint32_t timeoutMs);
 bool readFrame(uint8_t *output, size_t capacity, size_t &length, uint32_t timeoutMs = 10000);
 bool writeFrame(const uint8_t *data, size_t length, const char *label = "unlabelled");

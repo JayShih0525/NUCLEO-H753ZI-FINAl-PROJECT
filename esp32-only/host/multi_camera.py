@@ -14,6 +14,7 @@ import signal
 import subprocess
 import sys
 import time
+from host.trust_store import require_not_revoked
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -65,9 +66,10 @@ def load_devices(path, overrides=None):
         public_key = key_path.read_bytes()
         if len(public_key) != 1312:
             raise ValueError(f'{name}: expected a 1312-byte ML-DSA-44 public key')
+        require_not_revoked(public_key)
         fingerprint = hashlib.sha256(public_key).hexdigest()
         endpoint = (host.casefold(), port)
-        if name.casefold() in names or endpoint in endpoints or fingerprint in identities:
+        if name.casefold() in names or (host != 'auto' and endpoint in endpoints) or fingerprint in identities:
             raise ValueError(f'{name}: duplicate name, endpoint or device identity')
         names.add(name.casefold())
         endpoints.add(endpoint)

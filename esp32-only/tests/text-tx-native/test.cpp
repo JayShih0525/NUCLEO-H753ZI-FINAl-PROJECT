@@ -2,6 +2,7 @@
 #include <string>
 #include <limits>
 #include "../../firmware/esp32_pqc_demo/protocol.cpp"
+#include "../../firmware/esp32_pqc_demo/secure_records.cpp"
 namespace demo_transport {
 std::string output;
 bool live=true;

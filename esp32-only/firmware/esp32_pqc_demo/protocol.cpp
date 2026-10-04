@@ -4,6 +4,7 @@
 #include <esp_timer.h>
 #include "frame_writer.h"
 #include "tx_options.h"
+#include "secure_records.h"
 #include <stdarg.h>
 #include <stdio.h>
 
@@ -15,8 +16,11 @@ uint32_t g_shortWrites = 0;
 uint32_t g_writeFailures = 0;
 size_t g_lastRequested = 0;
 size_t g_lastWritten = 0;
+uint8_t g_recordRx[secure_records::HEADER + secure_records::MAX_PAYLOAD + secure_records::TAG];
+uint8_t g_recordTx[sizeof(g_recordRx)];
+size_t g_recordOffset = 0, g_recordLength = 0;
 
-bool writeExact(const uint8_t *data, size_t length) {
+bool writeRaw(const uint8_t *data, size_t length) {
   size_t offset = 0;
   uint32_t lastProgress = millis();
   const uint32_t started = lastProgress;
@@ -46,36 +50,103 @@ bool writeExact(const uint8_t *data, size_t length) {
   return true;
 }
 
-bool readExact(uint8_t *output, size_t length, uint32_t timeoutMs) {
+bool recordFailure() {
+  // Do not switch back to plaintext while the current client is connected.
+  Serial.println("[RECORD] invalid or incomplete record; closing client");
+  demo_transport::closeConnection();
+  g_recordOffset = g_recordLength = 0;
+  return false;
+}
+
+bool writeExact(const uint8_t *data, size_t length) {
+  if (!secure_records::active()) return writeRaw(data, length);
+  while (length) {
+    const size_t chunk = min(length, secure_records::MAX_PAYLOAD);
+    if (!secure_records::encode(g_recordTx, data, chunk) ||
+        !writeRaw(g_recordTx, secure_records::HEADER + chunk + secure_records::TAG)) return recordFailure();
+    data += chunk; length -= chunk;
+  }
+  return true;
+}
+
+bool readRaw(uint8_t *output, size_t length, uint32_t timeoutMs) {
   size_t offset = 0;
-  uint32_t lastProgress = millis();
+  const uint32_t started = millis();
 
   while (offset < length) {
     if (!demo_transport::connected()) return false;
+    if (millis() - started >= timeoutMs) return false;
     const int available = demo_transport::io().available();
     if (available > 0) {
       const size_t wanted = min(length - offset, static_cast<size_t>(available));
       const size_t received = demo_transport::io().readBytes(output + offset, wanted);
       if (received > 0) {
         offset += received;
-        lastProgress = millis();
       } else {
-        if (millis() - lastProgress >= timeoutMs) return false;
         delay(1);
       }
       continue;
     }
 
-    if (millis() - lastProgress >= timeoutMs) {
-      return false;
-    }
     delay(1);
   }
 
   return true;
 }
 
+int inputAvailable() {
+  if (!secure_records::active()) return demo_transport::io().available();
+  if (g_recordOffset < g_recordLength) return g_recordLength - g_recordOffset;
+  if (demo_transport::io().available() <= 0) return 0;
+  const uint32_t started = millis();
+  size_t length = 0;
+  if (!readRaw(g_recordRx, secure_records::HEADER, 10000) ||
+      !secure_records::inspect(g_recordRx, length)) { recordFailure(); return 0; }
+  const uint32_t elapsed = millis() - started;
+  if (elapsed >= 10000 ||
+      !readRaw(g_recordRx + secure_records::HEADER, length + secure_records::TAG, 10000-elapsed) ||
+      !secure_records::verify(g_recordRx, length)) { recordFailure(); return 0; }
+  g_recordOffset = 0; g_recordLength = length;
+  return length;
+}
+
+int inputRead() {
+  if (!secure_records::active()) return demo_transport::io().read();
+  if (g_recordOffset >= g_recordLength) return -1;
+  return g_recordRx[secure_records::HEADER + g_recordOffset++];
+}
+
+bool readExact(uint8_t *output, size_t length, uint32_t timeoutMs) {
+  if (!secure_records::active()) return readRaw(output, length, timeoutMs);
+  size_t offset = 0;
+  const uint32_t started = millis();
+  while (offset < length) {
+    if (!demo_transport::connected() || millis()-started >= timeoutMs) return recordFailure();
+    const int available = inputAvailable();
+    if (available > 0) {
+      const size_t n = min(length-offset, static_cast<size_t>(available));
+      memcpy(output+offset, g_recordRx+secure_records::HEADER+g_recordOffset, n);
+      offset += n; g_recordOffset += n;
+    } else delay(1);
+  }
+  return true;
+}
+
 }  // namespace
+
+void resetRecords() {
+  secure_records::reset();
+  g_recordOffset = g_recordLength = 0;
+  memset(g_recordRx, 0, sizeof(g_recordRx));
+  memset(g_recordTx, 0, sizeof(g_recordTx));
+}
+
+bool startRecords(const uint8_t secret[32], const uint8_t bindingHash[32], uint32_t epoch) {
+  if (g_recordOffset != g_recordLength) return recordFailure();
+  resetRecords();
+  if (!secure_records::start(secret, bindingHash, epoch)) return recordFailure();
+  return true;
+}
 
 bool readLine(char *output, size_t capacity, uint32_t timeoutMs) {
   if (output == nullptr || capacity < 2) {
@@ -87,7 +158,7 @@ bool readLine(char *output, size_t capacity, uint32_t timeoutMs) {
 
   while (true) {
     if (!demo_transport::connected()) return false;
-    if (demo_transport::io().available() <= 0) {
+    if (inputAvailable() <= 0) {
       const uint32_t waitMs = demo_transport::wifiMode() && length > 0 ? 10000 : timeoutMs;
       if (millis() - lastProgress >= waitMs) {
         if (demo_transport::wifiMode() && length > 0) {
@@ -101,7 +172,7 @@ bool readLine(char *output, size_t capacity, uint32_t timeoutMs) {
       continue;
     }
 
-    const int value = demo_transport::io().read();
+    const int value = inputRead();
     if (value < 0) {
       if (millis() - lastProgress >= timeoutMs) {
         if (demo_transport::wifiMode()) demo_transport::closeConnection();

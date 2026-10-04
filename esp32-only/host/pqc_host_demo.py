@@ -150,9 +150,12 @@ def request_info(protocol: SerialProtocol) -> str:
     protocol.send_line("INFO")
     info = protocol.read_until_prefix("INFO ", timeout=10.0)
     fields = parse_key_values(info, 'INFO ')
-    protocol.inline_rekey = fields.get('proto') in ('5', '6') and fields.get('inline_rekey') == '1'
+    protocol.inline_rekey = fields.get('proto') in ('5', '6', '7') and fields.get('inline_rekey') == '1'
     protocol.pipeline_rekey = protocol.inline_rekey and fields.get('pipeline_rekey') == '1'
-    protocol.mutual_auth = fields.get('proto') == '6' and fields.get('mutual_auth') == '1'
+    protocol.mutual_auth = fields.get('proto') in ('6', '7') and fields.get('mutual_auth') == '1'
+    protocol.secure_records = fields.get('proto') == '7'
+    if protocol.secure_records and not protocol.mutual_auth:
+        raise ProtocolError('Protocol v7 requires mutual authentication')
     return info
 
 
@@ -181,7 +184,8 @@ def establish_session(protocol: SerialProtocol) -> tuple[bytes, bytes, bytes, in
         values = protocol._handshake_timings
         values['total_ms'] = (time.perf_counter() - started) * 1000
         protocol.trace('handshake_timing', outcome=outcome,
-                       wire_mode='mutual-v6' if getattr(protocol, 'mutual_auth', False) is True else
+                       wire_mode='mutual-v7-records' if getattr(protocol, 'secure_records', False) is True else
+                       'mutual-v6' if getattr(protocol, 'mutual_auth', False) is True else
                        ('inline-v5' if getattr(protocol, 'inline_rekey', False) is True else 'ready-legacy'), **values)
         print('[TIMING handshake] outcome=' + outcome + ' ' +
               ' '.join(f'{name}={value:.3f}' for name, value in values.items()))

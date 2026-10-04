@@ -42,10 +42,10 @@ constexpr uint32_t MAX_REKEY_INTERVAL = 100000;
 constexpr size_t CAMERA_METADATA_SIZE = 20;
 constexpr size_t MAX_CAMERA_JPEG_SIZE = 1024 * 1024;
 constexpr char AUTH_DOMAIN[] = "esp32-only/auth-kem/v1";
-constexpr char MUTUAL_DEVICE[] = "esp32-only/mutual-device/v1";
-constexpr char MUTUAL_HOST[] = "esp32-only/mutual-host/v1";
-constexpr char MUTUAL_HOST_KEY[] = "esp32-only/mutual-host-key/v1";
-constexpr char MUTUAL_DEVICE_KEY[] = "esp32-only/mutual-device-key/v1";
+constexpr char MUTUAL_DEVICE[] = "esp32-only/mutual-device/v2";
+constexpr char MUTUAL_HOST[] = "esp32-only/mutual-host/v2";
+constexpr char MUTUAL_HOST_KEY[] = "esp32-only/mutual-host-key/v2";
+constexpr char MUTUAL_DEVICE_KEY[] = "esp32-only/mutual-device-key/v2";
 uint8_t g_mutualContext[1316];
 bool g_hostAuthorized = false, g_mutualPending = false;
 unsigned int g_hostIndex = 0;
@@ -237,7 +237,7 @@ void handleInfo() {
       "INFO proto=%u kem=ML-KEM-768 aes=AES-256-GCM dsa=ML-DSA-44 "
       "camera=OV2640 kem_pk=1184 kem_ct=1088 dsa_pk=1312 dsa_sig=2420 "
       "rekey_every=%lu inline_rekey=%u pipeline_rekey=%u mutual_auth=%u\n",
-      demo_transport::wifiMode() ? 6u : 5u,
+      demo_transport::wifiMode() ? 7u : 5u,
       static_cast<unsigned long>(g_rekeyInterval), demo_transport::wifiMode() ? 1u : 0u,
       demo_transport::wifiMode() ? 1u : 0u, demo_transport::wifiMode() ? 1u : 0u);
   demo_transport::flush();
@@ -836,7 +836,19 @@ void handleMutualFinish() {
   char status[100];
   snprintf(status, sizeof(status), "KEM_OK epoch=%lu limit=%lu elapsed_ms=%lu\n", g_sessionEpoch, g_rekeyInterval, millis() - started);
   const demo_protocol::ResponseFrame parts[] = {{proof, 32}};
-  if (!demo_protocol::writeResponse(status, parts, 1)) mutualFailure("MUTUAL_TX_FAILED");
+  if (!demo_protocol::writeResponse(status, parts, 1)) { mutualFailure("MUTUAL_TX_FAILED"); return; }
+  // Final proof uses the old record channel (plaintext for the first handshake).
+  // Switch both directions only at this authenticated handshake boundary.
+  memcpy(g_plaintext, g_mutualContext, sizeof(g_mutualContext));
+  memcpy(g_plaintext + sizeof(g_mutualContext), g_kemCiphertext, KEM_CIPHERTEXT_SIZE);
+  uint8_t bindingHash[32];
+  if (mbedtls_md(mbedtls_md_info_from_type(MBEDTLS_MD_SHA256), g_plaintext,
+      sizeof(g_mutualContext) + KEM_CIPHERTEXT_SIZE, bindingHash) != 0 ||
+      !demo_protocol::startRecords(g_sharedSecret, bindingHash, g_sessionEpoch)) {
+    secureZero(bindingHash, sizeof(bindingHash));
+    mutualFailure("RECORD_INIT_FAILED"); return;
+  }
+  secureZero(bindingHash, sizeof(bindingHash));
   secureZero(g_mutualContext, sizeof(g_mutualContext));
 }
 
@@ -976,7 +988,7 @@ bool initializeCrypto() {
   // before advertising, while a sufficiently large contiguous block exists.
   // The worker sleeps until start(); this does not generate or rotate a key.
   if (demo_transport::wifiMode()) {
-    Serial.printf("[AUTH] mutual-v6 required; trusted_hosts=%u\n", HOST_TRUST_COUNT);
+    Serial.printf("[AUTH] mutual-v7 records required; trusted_hosts=%u\n", HOST_TRUST_COUNT);
     if (!pending_rekey::prepare()) {
       Serial.println("ERR unable to reserve pipeline worker before discovery");
       return false;
@@ -995,6 +1007,7 @@ void runProtocolLoop() {
   while (true) {
     if (!demo_transport::connected()) {
       g_hostAuthorized = g_mutualPending = false;
+      demo_protocol::resetRecords();
       secureZero(g_mutualContext, sizeof(g_mutualContext));
       clearSessionSecret();
       if (!demo_transport::acceptConnection()) continue;
