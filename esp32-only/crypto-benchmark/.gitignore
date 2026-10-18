@@ -1,0 +1,8 @@
+build/
+results/
+firmware/esp32_crypto_benchmark/src/
+firmware/esp32_crypto_benchmark/benchmark_build.h
+source_manifest.json
+licenses/
+.test-tmp/
+firmware/esp32_crypto_benchmark/build_opt.h

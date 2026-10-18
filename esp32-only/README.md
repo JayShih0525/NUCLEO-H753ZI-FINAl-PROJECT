@@ -50,6 +50,8 @@ host / firmware 是主線；tests 是回歸測試；camera-tests 是不含 PQC �
 
 ## 基準與下一步
 
+- [ML-KEM / ML-DSA 獨立 benchmark](crypto-benchmark/README.md)：ESP32-S3 上分別量測 KeyGen／Encaps／Decaps／Sign／Verify 的耗時、Stack 和局部 Heap 低水位；自動保存逐筆與統計結果。獨立韌體，上傳會暫時取代相機應用程式。
+
 - [single-device-wifi-v1](baselines/single-device-wifi-v1/README.md)：早期單台副本。
 - [multi-device-mutual-v6](baselines/multi-device-mutual-v6/README.md)：9/22 無參數、自動探索、持續顯示、Q / Esc 停止、只輸出 FPS 的使用版。
 - [mainline-20260930](baselines/mainline-20260930/README.md)：9/30 來源與測試基準，保留目前主線參數、診斷與接收改善。不是另一份無限使用版。

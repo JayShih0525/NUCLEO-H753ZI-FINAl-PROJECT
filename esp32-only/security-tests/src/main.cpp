@@ -15,9 +15,37 @@ int main(){
         cerr << "start fail: " << result << endl;
         return 1;
     }
+    
+    addrinfo hints{};
+    hints.ai_family = AF_INET; // ipv4
+    hints.ai_socktype = SOCK_STREAM; // 位元組串流, DGRAM FOR UDP  
+    hints.ai_protocol = IPPROTO_TCP; // ip protocol tcp
+
+    addrinfo* addresses = nullptr; 
+
+    int lookup_result = getaddrinfo("192.168.1.104", "9000", &hints, &addresses); // return 0 if find this
+
+    if(lookup_result != 0){
+        cerr << "getaddrinfo error" << lookup_result << endl;
+        WSACleanup(); //still need cleanm the WSA if get exception out
+        return 1;
+    }
+    
+    // create the socket
+    SOCKET client = socket(addresses->ai_family, addresses->ai_socktype, addresses->ai_protocol);
+    
+    if(client == INVALID_SOCKET){
+        int err = WSAGetLastError();
+        cerr << "Socket failed: " << err << endl;
+        freeaddrinfo(addresses);
+        WSACleanup();
+        return 1;
+    }
 
     cout << "start success " << endl;
 
+
+    freeaddrinfo(addresses);
     WSACleanup();
 
     return 0;
