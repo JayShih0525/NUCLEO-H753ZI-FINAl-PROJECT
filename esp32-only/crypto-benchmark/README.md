@@ -20,15 +20,23 @@
 
 ## 1. 安裝與編譯
 
-在專案根目錄 `C:\Users\macho\Desktop\project` 的 PowerShell 執行。沿用現有 `.venv`；若換一台電腦，先安裝 Arduino IDE 和 **esp32 by Espressif Systems**、mldsa 函式庫，以及 Python 虛擬環境。
+在專案根目錄 `C:\Users\macho\Desktop\PQC\project` 的 PowerShell 執行。沿用現有 `.venv`；若換一台電腦，先安裝 Arduino IDE 和 **esp32 by Espressif Systems**、mldsa 函式庫，以及 Python 虛擬環境。
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r esp32-only\crypto-benchmark\requirements.txt
 
-.\.venv\Scripts\python.exe esp32-only\crypto-benchmark\build.py --dsa-library "C:\Users\macho\OneDrive\文件\Arduino\libraries\mldsa"
+.\.venv\Scripts\python.exe esp32-only\crypto-benchmark\build.py --dsa-library "C:\Users\macho\Documents\Arduino\libraries\mldsa"
 ```
 
 這台電腦的 mldsa 是 0.2.0。其他電腦把 `--dsa-library` 換成實際函式庫根目錄，不是 `src`。CLI 若不在預設位置，補 `--cli "完整的 arduino-cli.exe 路徑"`。來源準備後，後續不更動程式時可省略 `--dsa-library`。
+
+若使用 Arduino IDE 編譯／上傳，第一次先在上述專案根目錄執行：
+
+```powershell
+python esp32-only\crypto-benchmark\prepare.py --dsa-library "C:\Users\macho\Documents\Arduino\libraries\mldsa"
+```
+
+這會產生 `benchmark_build.h`、`build_opt.h`、演算法 `src/` 副本與 `source_manifest.json`。這些是本機生成檔，下載專案後不一定存在；若直接開 IDE 出現 `benchmark_build.h: No such file or directory`，就是尚未完成此步驟。不要自行建立空白標頭或刪除 include。準備成功後再開啟 `firmware/esp32_crypto_benchmark/esp32_crypto_benchmark.ino`，以符合下述設定的板型編譯。IDE 編譯不會產生 `build.py` 的建置證據；正式量測仍建議使用 `build.py`。
 
 建置設定固定為 ESP32S3 Dev Module、240 MHz、16 MB Flash、OPI 8 MB PSRAM、QIO、3 MB app partition、Core 1。適用目前的 S3 N16R8，不適用早期 AI Thinker ESP32-CAM。實際 FQBN 和編譯輸出保存在 `build/build_info.json`、`build/compile.log`。這份使用 IDF 局部 Heap 監控 API，已選用的核心為 3.3.11；舊版核心不保證能編譯。
 
