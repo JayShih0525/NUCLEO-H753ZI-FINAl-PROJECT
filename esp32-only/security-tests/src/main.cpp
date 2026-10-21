@@ -6,7 +6,59 @@
 
 using namespace std;
 
-string recv_by_line(SOCKET client, string &pending);
+constexpr size_t max_line_bytes = 4096; // const expression
+
+string recv_by_line(SOCKET client, string &pending, string &state, auto deadline){
+
+    char buf[1024]; 
+    int result;
+    state = "ok";
+
+    size_t pos = pending.find('\n');
+    
+    while(pos == string::npos){
+        
+        // check the whold array not out of the limit max at first then keep recv to '\n'
+        if(pending.size() > max_line_bytes){
+            state = "too long";
+            return "";
+        }
+
+        result = recv(client, buf, static_cast<int>(sizeof(buf)), 0);
+
+        if(result > 0) pending.append(buf, result);
+        else if(result == 0){
+            state = "End of recv";
+            return "";
+        } else{
+
+            int err = WSAGetLastError();
+            cerr << "recv failed: " << err << endl;
+            
+            // if timeout make error, the err will be WSAT
+            if(err == WSAETIMEDOUT){
+                state = "timeout";
+            }else{
+                state = "err";
+            }
+
+            return "";
+        }
+
+        pos = pending.find('\n');
+    }
+
+    // check this line is not out of the max limit
+    if(pos > max_line_bytes){
+        state = "too long";
+        return "";
+    }
+
+    string temp = pending.substr(0, pos);
+    pending.erase(0, pos + 1);
+    return temp;
+        
+}
 
 int main(){
 
@@ -27,7 +79,7 @@ int main(){
 
     addrinfo* addresses = nullptr; 
 
-    int lookup_result = getaddrinfo("192.168.1.104", "9000", &hints, &addresses); // return 0 if find this address
+    int lookup_result = getaddrinfo("172.20.10.2", "9000", &hints, &addresses); // return 0 if find this address
 
     if(lookup_result != 0){
         cerr << "getaddrinfo error" << lookup_result << endl;
@@ -62,6 +114,28 @@ int main(){
 
     cout << "Connected success" << endl; 
 
+
+    // set socket option for if waiting the data too long
+
+    // https://learn.microsoft.com/zh-tw/windows/win32/api/winsock/nf-winsock-setsockopt
+    // https://learn.microsoft.com/zh-tw/windows/win32/winsock/sol-socket-socket-options
+
+    DWORD timeout_ms = 10000;
+    
+    int option_result = setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&timeout_ms), static_cast<int>(sizeof(timeout_ms)));
+    // in setsockopt, if success return 0, else return SOCKET_ERROR
+
+    if(option_result == SOCKET_ERROR){
+        int err = WSAGetLastError();
+        cerr << "Set socket failed: " << err << endl;
+        
+        freeaddrinfo(addresses);
+        closesocket(client);
+        WSACleanup();
+        return 1;
+
+    } // else if mean option set success, do not need extra control
+
     // send and receive 
 
     string message = "INFO\n";
@@ -80,9 +154,7 @@ int main(){
             closesocket(client);
             WSACleanup();
             return 1;
-        }
-        
-        if(send_result == 0){
+        }else if(send_result == 0){
             cout << "stuck in send" << endl;
             freeaddrinfo(addresses);
             closesocket(client);
@@ -94,42 +166,47 @@ int main(){
     }
     cout << "Sent " << sent_bytes << " Bytes " << endl;
 
-    char recv_buff[1024];
-    int recv_result;
-    string pending, output;
+    string pending = "";
     bool info = false;
+    string state = "";
 
     while(!info){
 
-        recv_result = recv(client, recv_buff, static_cast<int>(sizeof(recv_buff)), 0);
-        
-        // the diff between cout and cout.wirte is the second one can exactly output the num u put in second element in the function.
-        // cuz recv wont put \0 in the last element of input
-        // OR use a string appended
+        string temp = recv_by_line(client, pending, state, deadline);
 
-        if(recv_result > 0) {
-            pending.append(recv_buff, recv_result);
-
-            size_t pos = pending.find('\n');
-            if(pos != string::npos){ // mean its find the \n in pending, so need to output and ready to recv the next line
-                output = pending.substr(0, pos);
-                cout << output;
-                pending.erase(0, pos+1);
-                
-                if(output.rfind("INFO ", 0) != string::npos) info = true; 
-            }
-
-        }else if(recv_result == 0){
-            cout << "end of recv" << endl;  
-        }else{
-            int err = WSAGetLastError();
-            cerr << "Receive failed: " << err << endl;
+        if(state == "End of recv"){ // mean that when not print INFO but stop the recv by server
+            cout << "end recv before get INFO" << endl;
             freeaddrinfo(addresses);
             closesocket(client);
             WSACleanup();
             return 1;
-        }
+        }else if(state == "err"){
+            freeaddrinfo(addresses);
+            closesocket(client);
+            WSACleanup();
+            return 1;
+        }else if(state == "timeout"){
+            
+            freeaddrinfo(addresses);
+            closesocket(client);
+            WSACleanup();
+            return 1;
+            
+        }else if(state == "too long"){
+            
+            cout << "The message out of the limit per line. " << endl;
+            freeaddrinfo(addresses);
+            closesocket(client);
+            WSACleanup();
+            return 1;
+
+        }else if(temp.rfind("INFO ", 0) == 0){
+            cout << temp << endl;
+            info = true;
+        }else cout << temp << endl;// normal output but not start with INFO
+
     }
+
 
 
     freeaddrinfo(addresses);
@@ -138,17 +215,4 @@ int main(){
 
     return 0;
 
-}
-
-
-string recv_by_line(SOCKET client, string &pending){
-
-    char buf[1024]; 
-    int result = recv(client, buf, static_cast<int>(sizeof(buf)), 0);
-    string temp;
-    
-    while(result > 0){
-        
-        temp.append(buf, sizeof(buf));
-    }
 }

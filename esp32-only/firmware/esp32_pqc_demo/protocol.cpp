@@ -30,14 +30,14 @@ bool writeRaw(const uint8_t *data, size_t length) {
     g_lastWritten = offset;
     if (demo_transport::wifiMode()) {
       Serial.printf("[TX_ABORT] reason=%s requested=%u written=%u elapsed_ms=%lu\n",
-          reason, static_cast<unsigned int>(length), static_cast<unsigned int>(offset), millis()-started);
+                    reason, static_cast<unsigned int>(length), static_cast<unsigned int>(offset), millis() - started);
       demo_transport::closeConnection();
     }
     return false;
   };
   while (offset < length) {
     if (!demo_transport::connected()) return fail("disconnected");
-    if (demo_transport::wifiMode() && millis()-started >= 5000) return fail("total_deadline");
+    if (demo_transport::wifiMode() && millis() - started >= 5000) return fail("total_deadline");
     const size_t wanted = length - offset;
     const size_t written = demo_transport::write(data + offset, wanted);
     if (written < wanted) ++g_shortWrites;
@@ -62,9 +62,9 @@ bool writeExact(const uint8_t *data, size_t length) {
   if (!secure_records::active()) return writeRaw(data, length);
   while (length) {
     const size_t chunk = min(length, secure_records::MAX_PAYLOAD);
-    if (!secure_records::encode(g_recordTx, data, chunk) ||
-        !writeRaw(g_recordTx, secure_records::HEADER + chunk + secure_records::TAG)) return recordFailure();
-    data += chunk; length -= chunk;
+    if (!secure_records::encode(g_recordTx, data, chunk) || !writeRaw(g_recordTx, secure_records::HEADER + chunk + secure_records::TAG)) return recordFailure();
+    data += chunk;
+    length -= chunk;
   }
   return true;
 }
@@ -100,13 +100,17 @@ int inputAvailable() {
   if (demo_transport::io().available() <= 0) return 0;
   const uint32_t started = millis();
   size_t length = 0;
-  if (!readRaw(g_recordRx, secure_records::HEADER, 10000) ||
-      !secure_records::inspect(g_recordRx, length)) { recordFailure(); return 0; }
+  if (!readRaw(g_recordRx, secure_records::HEADER, 10000) || !secure_records::inspect(g_recordRx, length)) {
+    recordFailure();
+    return 0;
+  }
   const uint32_t elapsed = millis() - started;
-  if (elapsed >= 10000 ||
-      !readRaw(g_recordRx + secure_records::HEADER, length + secure_records::TAG, 10000-elapsed) ||
-      !secure_records::verify(g_recordRx, length)) { recordFailure(); return 0; }
-  g_recordOffset = 0; g_recordLength = length;
+  if (elapsed >= 10000 || !readRaw(g_recordRx + secure_records::HEADER, length + secure_records::TAG, 10000 - elapsed) || !secure_records::verify(g_recordRx, length)) {
+    recordFailure();
+    return 0;
+  }
+  g_recordOffset = 0;
+  g_recordLength = length;
   return length;
 }
 
@@ -121,12 +125,13 @@ bool readExact(uint8_t *output, size_t length, uint32_t timeoutMs) {
   size_t offset = 0;
   const uint32_t started = millis();
   while (offset < length) {
-    if (!demo_transport::connected() || millis()-started >= timeoutMs) return recordFailure();
+    if (!demo_transport::connected() || millis() - started >= timeoutMs) return recordFailure();
     const int available = inputAvailable();
     if (available > 0) {
-      const size_t n = min(length-offset, static_cast<size_t>(available));
-      memcpy(output+offset, g_recordRx+secure_records::HEADER+g_recordOffset, n);
-      offset += n; g_recordOffset += n;
+      const size_t n = min(length - offset, static_cast<size_t>(available));
+      memcpy(output + offset, g_recordRx + secure_records::HEADER + g_recordOffset, n);
+      offset += n;
+      g_recordOffset += n;
     } else delay(1);
   }
   return true;
@@ -209,10 +214,7 @@ bool readFrame(uint8_t *output, size_t capacity, size_t &length, uint32_t timeou
   }
 
   const uint32_t announced =
-      (static_cast<uint32_t>(header[0]) << 24) |
-      (static_cast<uint32_t>(header[1]) << 16) |
-      (static_cast<uint32_t>(header[2]) << 8) |
-      static_cast<uint32_t>(header[3]);
+    (static_cast<uint32_t>(header[0]) << 24) | (static_cast<uint32_t>(header[1]) << 16) | (static_cast<uint32_t>(header[2]) << 8) | static_cast<uint32_t>(header[3]);
 
   if (announced > capacity || (announced > 0 && output == nullptr)) {
     uint8_t discard[64];
@@ -239,17 +241,17 @@ bool writeFrame(const uint8_t *data, size_t length, const char *label) {
   const uint32_t started = millis();
   size_t accepted = 0;
   const bool sent = writeFramedBytes(data, length,
-      PQC_COALESCE_SMALL_FRAMES && demo_transport::wifiMode(),
-      [&](const uint8_t *bytes, size_t count) {
-        const bool ok = writeExact(bytes, count);
-        if (ok) accepted += count;
-        return ok;
-      });
+                                     PQC_COALESCE_SMALL_FRAMES && demo_transport::wifiMode(),
+                                     [&](const uint8_t *bytes, size_t count) {
+                                       const bool ok = writeExact(bytes, count);
+                                       if (ok) accepted += count;
+                                       return ok;
+                                     });
   if (sent) demo_transport::flush();
   if (PQC_TRACE_FRAME_TX && demo_transport::wifiMode()) {
     Serial.printf("[TX_FRAME] label=%s payload=%u elapsed_ms=%lu ok=%u completed_bytes=%u\n",
-        label, static_cast<unsigned int>(length), millis()-started, sent,
-        static_cast<unsigned int>(accepted));
+                  label, static_cast<unsigned int>(length), millis() - started, sent,
+                  static_cast<unsigned int>(accepted));
   }
   return sent;
 }
@@ -282,13 +284,13 @@ void writeBootInfo(bool localOnly) {
   // Diagnostic identifier only; not the persistent, authenticated device identity.
   if (localOnly) {
     Serial.printf("BOOT boot_id=%s reset_reason=%d reset_name=%s uptime_ms=%llu\n",
-        g_bootId, static_cast<int>(g_resetReason), reason,
-        static_cast<unsigned long long>(esp_timer_get_time() / 1000));
+                  g_bootId, static_cast<int>(g_resetReason), reason,
+                  static_cast<unsigned long long>(esp_timer_get_time() / 1000));
     return;
   }
   demo_protocol::writeFormatted("BOOT boot_id=%s reset_reason=%d reset_name=%s uptime_ms=%llu\n",
-      g_bootId, static_cast<int>(g_resetReason), reason,
-      static_cast<unsigned long long>(esp_timer_get_time() / 1000));
+                                g_bootId, static_cast<int>(g_resetReason), reason,
+                                static_cast<unsigned long long>(esp_timer_get_time() / 1000));
   demo_transport::flush();
 }
 
@@ -296,8 +298,8 @@ void writeTxInfo() {
   // Only emit when explicitly requested BETWEEN transactions, never inside
   // a binary response: diagnostic text would itself corrupt the stream.
   demo_protocol::writeFormatted("TX short_writes=%lu failures=%lu last_requested=%u last_written=%u\n",
-      static_cast<unsigned long>(g_shortWrites), static_cast<unsigned long>(g_writeFailures),
-      static_cast<unsigned int>(g_lastRequested), static_cast<unsigned int>(g_lastWritten));
+                                static_cast<unsigned long>(g_shortWrites), static_cast<unsigned long>(g_writeFailures),
+                                static_cast<unsigned int>(g_lastRequested), static_cast<unsigned int>(g_lastWritten));
   demo_transport::flush();
 }
 
@@ -322,9 +324,11 @@ bool writeResponse(const char *text, const ResponseFrame *frames, size_t count) 
   size_t used = 0;
   auto append = [&](const uint8_t *data, size_t length) -> bool {
     while (length) {
-      const size_t amount = length < sizeof(buffer)-used ? length : sizeof(buffer)-used;
-      memcpy(buffer+used, data, amount);
-      used += amount; data += amount; length -= amount;
+      const size_t amount = length < sizeof(buffer) - used ? length : sizeof(buffer) - used;
+      memcpy(buffer + used, data, amount);
+      used += amount;
+      data += amount;
+      length -= amount;
       if (used == sizeof(buffer)) {
         if (!writeExact(buffer, used)) return false;
         used = 0;
@@ -335,9 +339,9 @@ bool writeResponse(const char *text, const ResponseFrame *frames, size_t count) 
   bool ok = append(reinterpret_cast<const uint8_t *>(text), strlen(text));
   for (size_t i = 0; ok && i < count; ++i) {
     const size_t length = frames[i].length;
-    const uint8_t prefix[4] = {static_cast<uint8_t>(length >> 24),
-        static_cast<uint8_t>(length >> 16), static_cast<uint8_t>(length >> 8),
-        static_cast<uint8_t>(length)};
+    const uint8_t prefix[4] = { static_cast<uint8_t>(length >> 24),
+                                static_cast<uint8_t>(length >> 16), static_cast<uint8_t>(length >> 8),
+                                static_cast<uint8_t>(length) };
     ok = append(prefix, 4) && append(frames[i].data, length);
   }
   if (ok && used) ok = writeExact(buffer, used);

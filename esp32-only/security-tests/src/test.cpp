@@ -1,21 +1,12 @@
 #include <iostream>
-#include <string>
+#include <chrono>
 
 using namespace std;
 
 int main(){
 
-    string test = "OHELLO";
-
-    size_t pos = test.rfind("OHE", 0);
-
-    if(pos != string::npos) cout << "rfind: " << pos << endl;
-    else cout << "not found" << endl;    
-
-    pos = test.find('O');
+    auto deadline = chrono::steady_clock::now() + chrono::seconds(10);
     
-    if(pos != string::npos) cout << "find: " << pos << endl;
-    else cout << "not found " << endl;
-
+    
     return 0;
 }
