@@ -39,8 +39,13 @@ python -m host.host_identity
 
 ## 3. 設定 WiFi 與燒錄
 
+### Windows（PowerShell）
 ```powershell
 Copy-Item firmware/esp32_pqc_demo/wifi_config.example.h firmware/esp32_pqc_demo/wifi_config.h
+```
+### macOS / Linux（Terminal）
+```bash
+cp firmware/esp32_pqc_demo/wifi_config.example.h firmware/esp32_pqc_demo/wifi_config.h
 ```
 
 編輯 wifi_config.h，設定自己的 2.4 GHz WiFi／手機熱點名稱與密碼，保留 `PQC_USE_WIFI true`。本機設定檔已被 Git 忽略。已有設定時不用重新複製覆蓋。
@@ -52,6 +57,7 @@ Arduino IDE 開啟 [esp32_pqc_demo.ino](firmware/esp32_pqc_demo/esp32_pqc_demo.i
 - 核對相機接腳定義與實際板型一致。
 - Flash 大小／模式、PSRAM 與 USB／UART 輸出設定需符合實際硬體。不要把其他板子的 QIO／DIO／OPI 組合直接照搬。
 - 確認第 2 步的 host_trust.h 存在；它會一起編入韌體。缺少清單時，所有 Host 的網路認證會被拒絕。
+- Tools → PSRAM → OPI PSRAM
 
 **目前建置環境仍有缺口：Arduino core 與外部 ML-DSA 函式庫的確切版本、來源及安裝流程尚未完整鎖定。這份文件不是已在全新電腦完成驗證的一鍵安裝保證。** 遇到缺少 MLDSA44.h 或 API 不相容，需先確認相依套件，不能跳過身分驗證來啟動。
 
@@ -70,10 +76,22 @@ DEVICE_ID_SHA256 裝置的64位十六進位指紋
 
 筆電與 ESP32 需在允許互通的同一區網。將下面內容換成實際值：
 
+### Windows（PowerShell）
 ```powershell
 $cameraIp = '填入ESP32的IP'
 $fingerprint = '填入從這台板子核對的64位指紋'
 python -m host.enroll_device --host $cameraIp --output host/camera1.pub --fingerprint $fingerprint
+```
+### macOS / Linux（Terminal）
+```bash
+### (=)前後不能有空格
+cameraIp='填入ESP32的IP'
+fingerprint='填入從這台板子核對的64位指紋'
+
+python -m host.enroll_device \
+  --host "$cameraIp" \
+  --output host/camera1.pub \
+  --fingerprint "$fingerprint"
 ```
 
 看到 `[PASS] Trusted device enrolled` 才繼續。工具從裝置取回公鑰，核對指紋後保存；若輸出檔案已存在，會拒絕覆蓋。不要為了消除錯誤而直接信任未知公鑰。
