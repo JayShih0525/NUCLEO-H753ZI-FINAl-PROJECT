@@ -3,12 +3,13 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <chrono>
 
 using namespace std;
 
 constexpr size_t max_line_bytes = 4096; // const expression
 
-string recv_by_line(SOCKET client, string &pending, string &state, auto deadline){
+string recv_by_line(SOCKET client, string &pending, string &state, chrono::steady_clock::time_point deadline){
 
     char buf[1024]; 
     int result;
@@ -17,12 +18,16 @@ string recv_by_line(SOCKET client, string &pending, string &state, auto deadline
     size_t pos = pending.find('\n');
     
     while(pos == string::npos){
-        
+
         // check the whold array not out of the limit max at first then keep recv to '\n'
         if(pending.size() > max_line_bytes){
             state = "too long";
             return "";
         }
+
+        auto remaining_time = chrono::steady_clock::now() - deadline;
+        chrono::duration_cast<chrono::milliseconds>(remaining_time);
+        remaining_time.count();
 
         result = recv(client, buf, static_cast<int>(sizeof(buf)), 0);
 
@@ -170,8 +175,17 @@ int main(){
     bool info = false;
     string state = "";
 
+    auto deadline = chrono::steady_clock::now() + chrono::seconds(10);
+
     while(!info){
 
+        if(chrono::steady_clock::now() >= deadline){
+            cerr << "timeout" << endl;
+            freeaddrinfo(addresses);
+            closesocket(client);
+            WSACleanup();
+            return 1;
+        }
         string temp = recv_by_line(client, pending, state, deadline);
 
         if(state == "End of recv"){ // mean that when not print INFO but stop the recv by server
@@ -206,8 +220,6 @@ int main(){
         }else cout << temp << endl;// normal output but not start with INFO
 
     }
-
-
 
     freeaddrinfo(addresses);
     closesocket(client);

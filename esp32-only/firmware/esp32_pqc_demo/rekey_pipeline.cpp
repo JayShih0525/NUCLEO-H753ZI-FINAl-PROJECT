@@ -129,7 +129,7 @@ size_t reply(uint8_t *out) {
   return 1;
 }
 bool promote(const uint8_t token[32], uint8_t *pk, uint8_t *sk, uint8_t *ct, uint8_t *secret) {
-  if (state() != CONFIRMED) return false;
+  if (state() != CONFIRMED) return false; // confired the key is ready
   uint8_t message[sizeof(COMMIT) + 72], expected[32];
   memcpy(message, COMMIT, sizeof(COMMIT)); memcpy(message + sizeof(COMMIT), work->context, 72);
   if (!mac(work->secret, message, sizeof(message), expected)) return false;
