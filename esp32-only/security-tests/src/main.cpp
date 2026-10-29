@@ -1,84 +1,11 @@
-#include <winsock2.h>
-#include <ws2tcpip.h>
+#include "tcp_client.h"
+
 #include <iostream>
-#include <string>
-#include <vector>
-#include <chrono>
 
-using namespace std;
-
-constexpr size_t max_line_bytes = 4096; // const expression
-
-string recv_by_line(SOCKET client, string &pending, string &state, chrono::steady_clock::time_point deadline){
-
-    char buf[1024]; 
-    int result;
-    state = "ok";
-
-    size_t pos = pending.find('\n');
-    
-    while(pos == string::npos){
-
-        // check the whold array not out of the limit max at first then keep recv to '\n'
-        if(pending.size() > max_line_bytes){
-            state = "too long";
-            return "";
-        }
-
-        // set a reamining_time rotate to base on ms and let recv have time limit
-        auto remaining_time = deadline - chrono::steady_clock::now();
-
-        // if remaining_time less or equal 0, need return imme
-        if(remaining_time <= chrono::steady_clock::duration::zero()){
-            state = "timeout";
-            return "";
-        }
-        
-        DWORD remaining_ms = chrono::ceil<chrono::milliseconds>(remaining_time).count();
-
-        int sockopt = setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&remaining_ms), static_cast<int>(sizeof(remaining_ms)));
-        if(sockopt == SOCKET_ERROR){
-            state = "err";
-            return "";    
-        }
-
-        result = recv(client, buf, static_cast<int>(sizeof(buf)), 0);
-
-        if(result > 0) pending.append(buf, result);
-        else if(result == 0){
-            state = "End of recv";
-            return "";
-        } else{
-
-            int err = WSAGetLastError();
-            cerr << "recv failed: " << err << endl;
-            
-            // if timeout make error, the err will be WSAT
-            if(err == WSAETIMEDOUT){
-                state = "timeout";
-            }else{
-                state = "err";
-            }
-
-            return "";
-        }
-
-        pos = pending.find('\n');
-    }
-
-    // check this line is not out of the max limit
-    if(pos > max_line_bytes){
-        state = "too long";
-        return "";
-    }
-
-    string temp = pending.substr(0, pos);
-    pending.erase(0, pos + 1);
-    return temp;
-        
-}
+// g++ -std=c++17 -Wall -Wextra -g3 -Iinclude src/main.cpp src/tcp_client.cpp -o src/output/main.exe -lws2_32
 
 int main(){
+    
 
     // init
     // https://learn.microsoft.com/en-us/windows/win32/winsock/initializing-winsock
@@ -132,57 +59,15 @@ int main(){
 
     cout << "Connected success" << endl; 
 
+    // send
+    string message = "CAMERA_CAPTURE_ENCRYPTED\n";
 
-    // set socket option for if waiting the data too long
-
-    // https://learn.microsoft.com/zh-tw/windows/win32/api/winsock/nf-winsock-setsockopt
-    // https://learn.microsoft.com/zh-tw/windows/win32/winsock/sol-socket-socket-options
-
-    DWORD timeout_ms = 10000;
-    
-    int option_result = setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&timeout_ms), static_cast<int>(sizeof(timeout_ms)));
-    // in setsockopt, if success return 0, else return SOCKET_ERROR
-
-    if(option_result == SOCKET_ERROR){
-        int err = WSAGetLastError();
-        cerr << "Set socket failed: " << err << endl;
-        
+    if(!send_all(client, message)){
         freeaddrinfo(addresses);
         closesocket(client);
         WSACleanup();
         return 1;
-
-    } // else if mean option set success, do not need extra control
-
-    // send and receive 
-
-    string message = "INFO\n";
-
-    // the result return the bytes sent or receive if its work, OR SOCKET_ERROR
-    int sent_bytes = 0;
-
-    while(sent_bytes < static_cast<int>(message.size())){
-        
-        int send_result = send(client, message.data() + sent_bytes, static_cast<int>(message.size() - sent_bytes), 0);
-
-        if(send_result == SOCKET_ERROR){
-            int err = WSAGetLastError();
-            cerr << "send failed: " << err << endl;
-            freeaddrinfo(addresses);
-            closesocket(client);
-            WSACleanup();
-            return 1;
-        }else if(send_result == 0){
-            cout << "stuck in send" << endl;
-            freeaddrinfo(addresses);
-            closesocket(client);
-            WSACleanup();
-            return 1;
-        }
-
-        sent_bytes += send_result;
     }
-    cout << "Sent " << sent_bytes << " Bytes " << endl;
 
     string pending = "";
     bool info = false;
@@ -193,51 +78,58 @@ int main(){
     while(!info){
 
         if(chrono::steady_clock::now() >= deadline){
-            cerr << "timeout" << endl;
-            freeaddrinfo(addresses);
-            closesocket(client);
-            WSACleanup();
+            cerr << "deadline" << endl;
             return 1;
         }
         string temp = recv_by_line(client, pending, state, deadline);
 
         if(state == "End of recv"){ // mean that when not print INFO but stop the recv by server
             cout << "end recv before get INFO" << endl;
-            freeaddrinfo(addresses);
-            closesocket(client);
-            WSACleanup();
             return 1;
         }else if(state == "err"){
-            freeaddrinfo(addresses);
-            closesocket(client);
-            WSACleanup();
             return 1;
         }else if(state == "timeout"){
-            
-            freeaddrinfo(addresses);
-            closesocket(client);
-            WSACleanup();
+            cerr << "timeout for waiting" << endl;
             return 1;
             
         }else if(state == "too long"){
             
             cout << "The message out of the limit per line. " << endl;
-            freeaddrinfo(addresses);
-            closesocket(client);
-            WSACleanup();
             return 1;
 
-        }else if(temp.rfind("INFO ", 0) == 0){
-            cout << temp << endl;
+        }else if(temp ==  "ERR HOST_AUTH_REQUIRED"){
+            cout << "[PASS] Unauthenticated camera request rejected" << endl;
             info = true;
         }else cout << temp << endl;// normal output but not start with INFO
 
     }
 
+    // // set socket option for if waiting the data too long
+
+    // // https://learn.microsoft.com/zh-tw/windows/win32/api/winsock/nf-winsock-setsockopt
+    // // https://learn.microsoft.com/zh-tw/windows/win32/winsock/sol-socket-socket-options
+
+    // DWORD timeout_ms = 10000;
+    
+    // int option_result = setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&timeout_ms), static_cast<int>(sizeof(timeout_ms)));
+    // // in setsockopt, if success return 0, else return SOCKET_ERROR
+
+    // if(option_result == SOCKET_ERROR){
+    //     int err = WSAGetLastError();
+    //     cerr << "Set socket failed: " << err << endl;
+        
+    //     freeaddrinfo(addresses);
+    //     closesocket(client);
+    //     WSACleanup();
+    //     return 1;
+
+    // } // else if mean option set success, do not need extra control
+
+
     freeaddrinfo(addresses);
     closesocket(client);
     WSACleanup();
-
+    
     return 0;
 
 }
