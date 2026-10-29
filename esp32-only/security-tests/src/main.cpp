@@ -25,9 +25,22 @@ string recv_by_line(SOCKET client, string &pending, string &state, chrono::stead
             return "";
         }
 
-        auto remaining_time = chrono::steady_clock::now() - deadline;
-        chrono::duration_cast<chrono::milliseconds>(remaining_time);
-        remaining_time.count();
+        // set a reamining_time rotate to base on ms and let recv have time limit
+        auto remaining_time = deadline - chrono::steady_clock::now();
+
+        // if remaining_time less or equal 0, need return imme
+        if(remaining_time <= chrono::steady_clock::duration::zero()){
+            state = "timeout";
+            return "";
+        }
+        
+        DWORD remaining_ms = chrono::ceil<chrono::milliseconds>(remaining_time).count();
+
+        int sockopt = setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&remaining_ms), static_cast<int>(sizeof(remaining_ms)));
+        if(sockopt == SOCKET_ERROR){
+            state = "err";
+            return "";    
+        }
 
         result = recv(client, buf, static_cast<int>(sizeof(buf)), 0);
 
