@@ -1,8 +1,15 @@
 #include "tcp_client.h"
+#include "security_tests.h"
 
 #include <iostream>
 
 // g++ -std=c++17 -Wall -Wextra -g3 -Iinclude src/main.cpp src/tcp_client.cpp -o src/output/main.exe -lws2_32
+// g++ -std=c++17 -Wall -Wextra -g3 -Iinclude src/main.cpp src/tcp_client.cpp src/security_tests.cpp -o src/output/main.exe -lws2_32
+void clean( SOCKET client, addrinfo* addresses){
+    closesocket(client); 
+    freeaddrinfo(addresses);
+    WSACleanup();
+}
 
 int main(){
     
@@ -51,59 +58,17 @@ int main(){
     if(connect_result == SOCKET_ERROR){
         int err = WSAGetLastError();
         cerr << "Connect failed: " << err << endl;
-        closesocket(client); 
-        freeaddrinfo(addresses);
-        WSACleanup();
+        clean(client, addresses);
         return 1;
     }
 
     cout << "Connected success" << endl; 
 
-    // send
-    string message = "CAMERA_CAPTURE_ENCRYPTED\n";
-
-    if(!send_all(client, message)){
-        freeaddrinfo(addresses);
-        closesocket(client);
-        WSACleanup();
+    if(!test_unauthenticated_camera(client)){
+        clean(client, addresses);
         return 1;
     }
-
-    string pending = "";
-    bool info = false;
-    string state = "";
-
-    auto deadline = chrono::steady_clock::now() + chrono::seconds(10);
-
-    while(!info){
-
-        if(chrono::steady_clock::now() >= deadline){
-            cerr << "deadline" << endl;
-            return 1;
-        }
-        string temp = recv_by_line(client, pending, state, deadline);
-
-        if(state == "End of recv"){ // mean that when not print INFO but stop the recv by server
-            cout << "end recv before get INFO" << endl;
-            return 1;
-        }else if(state == "err"){
-            return 1;
-        }else if(state == "timeout"){
-            cerr << "timeout for waiting" << endl;
-            return 1;
-            
-        }else if(state == "too long"){
-            
-            cout << "The message out of the limit per line. " << endl;
-            return 1;
-
-        }else if(temp ==  "ERR HOST_AUTH_REQUIRED"){
-            cout << "[PASS] Unauthenticated camera request rejected" << endl;
-            info = true;
-        }else cout << temp << endl;// normal output but not start with INFO
-
-    }
-
+    
     // // set socket option for if waiting the data too long
 
     // // https://learn.microsoft.com/zh-tw/windows/win32/api/winsock/nf-winsock-setsockopt
@@ -126,10 +91,7 @@ int main(){
     // } // else if mean option set success, do not need extra control
 
 
-    freeaddrinfo(addresses);
-    closesocket(client);
-    WSACleanup();
-    
+    clean(client, addresses);
     return 0;
 
 }

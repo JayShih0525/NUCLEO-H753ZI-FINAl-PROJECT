@@ -98,6 +98,12 @@ string recv_by_line(SOCKET client, string &pending, string &state, chrono::stead
         return "";
     }
 
+    auto remaining_time = deadline - chrono::steady_clock::now();
+    if(remaining_time <= chrono::steady_clock::duration::zero()){
+        state = "timeout";
+        return "";
+    }
+    
     string temp = pending.substr(0, pos);
     pending.erase(0, pos + 1);
     return temp;
