@@ -12,5 +12,6 @@ using namespace std;
 
 bool send_all(SOCKET client, const string& message);
 string recv_by_line(SOCKET client, string &pending, string &state, chrono::steady_clock::time_point deadline);
+bool send_frame(SOCKET client, const string &payload);
 
 #endif

@@ -1,10 +1,14 @@
 #include "tcp_client.h"
 #include "security_tests.h"
 
+#include <windows.h>
+#include <bcrypt.h>
+
 #include <iostream>
+#include <fstream>
 
 // g++ -std=c++17 -Wall -Wextra -g3 -Iinclude src/main.cpp src/tcp_client.cpp -o src/output/main.exe -lws2_32
-// g++ -std=c++17 -Wall -Wextra -g3 -Iinclude src/main.cpp src/tcp_client.cpp src/security_tests.cpp -o src/output/main.exe -lws2_32
+// g++ -std=c++17 -Wall -Wextra -g3 -Iinclude src/main.cpp src/tcp_client.cpp src/security_tests.cpp -o src/output/main.exe -lws2_32 -lbcrypt
 void clean( SOCKET client, addrinfo* addresses){
     closesocket(client); 
     freeaddrinfo(addresses);
@@ -64,10 +68,10 @@ int main(){
 
     cout << "Connected success" << endl; 
 
-    if(!test_unauthenticated_camera(client)){
-        clean(client, addresses);
-        return 1;
-    }
+    // if(!test_unauthenticated_camera(client)){
+    //     clean(client, addresses);
+    //     return 1;
+    // }
     
     // // set socket option for if waiting the data too long
 
@@ -90,8 +94,19 @@ int main(){
 
     // } // else if mean option set success, do not need extra control
 
-
+    if(!test_unknown_host(client)) {
+        clean(client, addresses);
+        return 1;
+    }
+    
+    
     clean(client, addresses);
     return 0;
 
 }
+
+
+// 陌生 Host 金鑰：用未加入白名單的身分握手
+// 控制資料篡改：修改命令內容，保留原 HMAC	拒絕，不執行命令
+// 同 session 重播：重送已被接受的完整紀錄	拒絕重複序號	保存並重送原始紀錄
+// 跨 session 重播

@@ -1,5 +1,6 @@
 
 #include <iostream>
+#include <cstdint>
 
 #include "tcp_client.h"
 
@@ -108,4 +109,42 @@ string recv_by_line(SOCKET client, string &pending, string &state, chrono::stead
     pending.erase(0, pos + 1);
     return temp;
         
+}
+
+bool send_frame(SOCKET client, const string &payload){
+
+    // by firmware/protocol.cpp : readFrame (Line:208) -> need to cut the four bytes for size of mes at first
+
+    // so we need a variable to record the size of payload
+
+    const auto len = payload.size();
+    
+    // confirm it small than the max of 4 bytes
+    
+    if(len > UINT32_MAX){
+        cerr << "the message too long" << endl;
+        return false;
+    }
+
+    // and if it legal, tran the size of payload to 4 bytes in HEX, Ex. 68 = 00 00 00 44, shift it to most right site and get the lower two bytes to HEX
+
+    uint8_t header[4] = {0}; // match the file of protocol.cpp in firmware
+    
+    header[0] = (len >> 24) & 0xFF; // shift right and save the highest bytes
+    header[1] = (len >> 16) & 0xFF;
+    header[2] = (len >> 8) & 0xFF;
+    header[3] = len & 0xFF;
+
+    // then send the header -> the message 
+    string len_bytes(reinterpret_cast<char*>(header), sizeof(header)); // create this var cuz if we use reinterpret_cast<char*>(header) in send_all immed will make error if header stored 00 or all 4 bytes have value;
+
+    if(send_all(client, len_bytes)){
+
+        if(send_all(client, payload)){
+            return true;
+        }
+
+    }
+    return false;
+    
 }
